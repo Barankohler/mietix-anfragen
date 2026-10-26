@@ -57,6 +57,7 @@ button.hell{background:#fff;color:var(--dunkel);border:1px solid var(--rand)}
 .minik{text-align:center;padding:11px 3px;border-radius:12px;
   font-size:12px;font-weight:800;border:1px solid var(--rand);background:#fff;cursor:pointer;
   display:flex;align-items:center;justify-content:center;min-height:46px;line-height:1.2}
+.minik.vertragk{display:block;margin-top:8px;background:var(--rot,#C4161C);color:#fff;border-color:var(--rot,#C4161C);text-decoration:none;font-weight:800}
 .minik.an{background:var(--dunkel);color:#fff;border-color:var(--dunkel)}
 .minik.wa{background:#25D366;color:#fff;border-color:#25D366;text-decoration:none;
   display:block;line-height:1.3}
@@ -178,7 +179,10 @@ function zeichnen(){
       +'<div class="ereihe zwei">'
         +(wa?'<a class="minik wa" href="https://wa.me/'+wa+'" target="_blank">WhatsApp öffnen</a>':'<span></span>')
         +'<div class="minik weg" data-weg="1">Löschen</div>'
-      +'</div></div>';
+      +'</div>'
+      // Gebucht: ein Klick öffnet den Mietvertrag schon ausgefüllt (gleicher Speicher auf barankohler.github.io)
+      +(x.status==="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?anfrage='+x.id+'">Vertrag machen</a>':'')
+      +'</div>';
   }).join("");
 
   [...$("liste").querySelectorAll(".eintrag")].forEach(e=>{
