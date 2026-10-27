@@ -183,7 +183,6 @@ function zeichnen(){
         +'<div class="minik weg" data-weg="1">Löschen</div>'
       +'</div>'
       // Gebucht: ein Klick öffnet den Mietvertrag schon ausgefüllt (gleicher Speicher auf barankohler.github.io)
-      +(x.status!=="abgesagt"?'<div class="minik linkk" data-link="'+x.id+'">Kunden-Link kopieren (Kunde trägt seine Daten selbst ein)</div>':'')
       +(x.status==="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?anfrage='+x.id+'">Vertrag machen</a>':'')
       +'</div>';
   }).join("");
@@ -194,9 +193,6 @@ function zeichnen(){
       k.onclick=()=>{ const a=lesen(); const t=a.find(x=>x.id===id);
         if(t){ t.status=k.dataset.s; schreiben(a); zeichnen(); } };
     });
-    const lk=e.querySelector(".minik[data-link]");
-    if(lk) lk.onclick=()=>{const u="https://barankohler.github.io/mietix-vertrag/kunde.html?a="+id;
-      try{navigator.clipboard.writeText(u)}catch(err){}lk.textContent="Kopiert. In WhatsApp einfügen.";setTimeout(zeichnen,2500)};
     const weg=e.querySelector(".minik[data-weg]");
     if(weg) weg.onclick=()=>{ if(!confirm("Diese Anfrage löschen?"))return;
       schreiben(lesen().filter(x=>x.id!==id)); zeichnen(); };
@@ -352,10 +348,6 @@ Storage.prototype.setItem=function(k,v){roh.call(this,k,v);if(this===localStorag
 window.mietixNeueNummer=async function(){if(!sitzung||!navigator.onLine)return null;
   try{const n=await api("rpc/neue_vertragsnummer",{method:"POST",body:"{}"});return typeof n==="string"?n:null}catch(e){return null}};
 window.mietixAbgleichen=abgleichen;
-// Daten, die Kunden über kunde.html selbst geschickt haben (nur lesbar mit Anmeldung)
-window.mietixSelbstauskuenfte=async function(){if(!sitzung||!navigator.onLine)return[];
-  try{return await api("selbstauskunft?select=id,anfrage,daten,erstellt&order=erstellt.desc",{method:"GET"})||[]}catch(e){return[]}};
-window.mietixSelbstauskunftErledigt=async function(id){if(!id)return;try{await api("selbstauskunft?id=eq."+encodeURIComponent(id),{method:"DELETE"})}catch(e){}};
 
 /* ---------- Link aus der Einladungs- oder Passwort-Mail: Passwort selbst festlegen ---------- */
 let pwSetzen=false,linkFehler="";
