@@ -52,6 +52,10 @@ button.hell{background:#fff;color:var(--dunkel);border:1px solid var(--rand)}
 .edaten{font-size:14px;color:var(--grau);font-weight:600;margin-top:4px;line-height:1.45}
 .ewunsch{font-size:14px;font-weight:700;margin-top:6px}
 .enotiz{font-size:13.5px;color:var(--grau);margin-top:6px;line-height:1.45}
+.epreis{font-size:14px;font-weight:800;margin-top:8px;padding:9px 11px;border-radius:12px;background:#F2F2F4}
+.epreis.frei{background:#E8F6EE;color:#1B8A4B}.epreis.belegt{background:#FDEBEC;color:var(--rot)}
+.epreis i{font-style:normal;font-weight:600;color:var(--grau)}
+.minik.angebot{display:block;margin-top:8px;background:#25D366;color:#fff;border-color:#25D366;font-weight:800}
 .ereihe{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}
 .ereihe.zwei{grid-template-columns:2fr 1fr}
 .minik{text-align:center;padding:11px 3px;border-radius:12px;
@@ -124,6 +128,7 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
 <script>
 const $=id=>document.getElementById(id);
 let AUTOS=["Audi RS Q8"];
+let D=null;   // Preisdatei (gleiche Formel wie der Preisrechner)
 let SICHT="heute";
 const STATUS=[["offen","offen"],["angebot","Angebot"],["gebucht","gebucht"],["abgesagt","abgesagt"]];
 
@@ -142,6 +147,48 @@ function nummerWa(roh){
   else if(n.startsWith("0"))n="49"+n.slice(1);
   return n.length>=8?n:"";
 }
+
+/* ---------- Paket B (28.10.2026): Preis und frei/belegt direkt an der Anfrage, Angebot mit einem Tipp ----------
+   Preis: exakt die Formel des Preisrechners (Wochentagsfaktoren, Mengenrabatt, Fr-auf-Sa-Sonderpreis), ohne km-Paket,
+   ohne Zusatzfahrer, ohne Extra-Rabatt. Angebotstext: Wort für Wort der Text des Preisrechners. */
+const ausISO=s=>{const[j,m,t]=s.split("-").map(Number);return new Date(j,m-1,t)};
+const wtIndex=d=>(d.getDay()+6)%7;
+const kurz=d=>String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+".";
+const lang=d=>kurz(d)+d.getFullYear();
+const wtKurz=d=>["Mo","Di","Mi","Do","Fr","Sa","So"][wtIndex(d)];
+const EUR=new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"});
+const EUR0=new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR",maximumFractionDigits:0});
+function scaler(s,d){const W=D.faktor.reduce((a,b)=>a+b,0);let sum=Math.floor(d/7)*W;for(let k=0;k<d%7;k++)sum+=D.faktor[(s+k)%7];return sum}
+function wochenmiete(a,start,dauer){if(dauer===1&&start>=4)return a.frSa||a.gp*D.faktor[start];return a.gp*scaler(start,dauer)}
+function preisFuer(x){
+  if(!D||!x.auto||!x.von||!x.bis)return null;
+  const c=D.cars.find(c=>(c.anzeige||c.n)===x.auto);if(!c)return null;
+  const von=ausISO(x.von),bis=ausISO(x.bis),dauer=Math.round((bis-von)/86400000);if(dauer<1)return null;
+  const gm=wochenmiete(c,wtIndex(von),dauer),pf=1-D.rabatt[Math.min(dauer,D.days)-1],total=gm*pf;
+  return{c,von,bis,dauer,liste:gm,total,ersparnis:gm-total,proz:gm>0?Math.round((gm-total)/gm*100):0}}
+function angebotsText(x,r){
+  const kmGesamt=D.freiKm*r.dauer;
+  const zeitraum=wtKurz(r.von)+" "+kurz(r.von)+" bis "+wtKurz(r.bis)+" "+lang(r.bis)+", "+r.dauer+(r.dauer===1?" Tag":" Tage");
+  const z=["*Ihr Angebot*","","- Fahrzeug: "+r.c.n,"- Zeitraum: "+zeitraum,"- Kilometer: "+kmGesamt.toLocaleString("de-DE")+" km inklusive",
+    "- Zusatzfahrer: keine","- Kaution: "+(r.c.kaution?EUR0.format(r.c.kaution)+", kommt nach Rückgabe komplett zurück":"auf Anfrage"),""];
+  if(r.proz>0){z.push("*Ihr Rabatt: "+r.proz+" %*","Statt "+EUR.format(r.liste)+" nur "+EUR.format(r.total),"Sie sparen "+EUR.format(r.ersparnis),"")}
+  z.push("*Mietpreis: "+EUR.format(r.total)+"*");
+  if(r.dauer>1){z.push("","Gilt nur für den kompletten Zeitraum "+zeitraum+" am Stück. Für einzelne Tage daraus gilt der reguläre Tagespreis.")}
+  z.push("","Soll ich den Wagen für Sie reservieren?");return z.join("\n")}
+// Belegt, wenn ein Vertrag (nicht zurück) oder eine andere gebuchte Anfrage dasselbe Auto im Zeitraum hat. Rückgabetag zählt nicht mit.
+function belegtDurch(x){
+  if(!x.auto||!x.von||!x.bis)return[];
+  const ueber=(v1,b1,v2,b2)=>v1<b2&&b1>v2,t=[];
+  let vorg=[];try{vorg=JSON.parse(localStorage.getItem("mietixVorgaenge")||"[]")}catch(e){}
+  vorg.forEach(v=>{if(v.auto===x.auto&&v.status!=="zurück"&&v.vonD&&v.bisD&&ueber(x.von,x.bis,v.vonD,v.bisD))t.push({name:v.name,bis:v.bisD})});
+  lesen().forEach(a=>{if(a.id!==x.id&&a.status==="gebucht"&&a.auto===x.auto&&a.von&&a.bis&&ueber(x.von,x.bis,a.von,a.bis))t.push({name:a.name||"Anfrage",bis:a.bis})});
+  return t}
+function preisZeile(x){
+  if(!x.auto||!x.von||!x.bis)return x.auto?'<div class="epreis"><i>Datum fehlt für Preis und Verfügbarkeit</i></div>':"";
+  const b=belegtDurch(x),r=preisFuer(x);
+  if(b.length)return'<div class="epreis belegt">Belegt: '+b.map(t=>t.name+" bis "+deutsch(t.bis)).join(", ")+'</div>';
+  if(!r)return'<div class="epreis"><i>Preis wird geladen …</i></div>';
+  return'<div class="epreis frei">Frei. '+EUR.format(r.total)+' für '+r.dauer+(r.dauer===1?" Tag":" Tage")+(r.proz?' <i>(mit '+r.proz+' % Mengenrabatt)</i>':'')+'</div>'}
 
 function gefiltert(){
   const a=lesen();
@@ -175,6 +222,7 @@ function zeichnen(){
             .filter(Boolean).join("  |  ")+'</div>'
       +(x.auto||zeitraum ? '<div class="ewunsch">'+[x.auto,zeitraum].filter(Boolean).join("  |  ")+'</div>':'')
       +(x.notiz? '<div class="enotiz">'+x.notiz+'</div>':'')
+      +preisZeile(x)
       +'<div class="ereihe">'
         +STATUS.map(s=>'<div class="minik '+(x.status===s[0]?"an":"")+'" data-s="'+s[0]+'">'+s[1]+'</div>').join("")
       +'</div>'
@@ -183,6 +231,7 @@ function zeichnen(){
         +'<div class="minik weg" data-weg="1">Löschen</div>'
       +'</div>'
       // Gebucht: ein Klick öffnet den Mietvertrag schon ausgefüllt (gleicher Speicher auf barankohler.github.io)
+      +(x.status!=="abgesagt"&&x.status!=="gebucht"&&preisFuer(x)&&!belegtDurch(x).length?'<div class="minik angebot" data-angebot="1">Angebot per WhatsApp schicken</div>':'')
       +(x.status==="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?anfrage='+x.id+'">Vertrag machen</a>':'')
       +'</div>';
   }).join("");
@@ -193,6 +242,13 @@ function zeichnen(){
       k.onclick=()=>{ const a=lesen(); const t=a.find(x=>x.id===id);
         if(t){ t.status=k.dataset.s; schreiben(a); zeichnen(); } };
     });
+    const ang=e.querySelector(".minik[data-angebot]");
+    if(ang) ang.onclick=async()=>{const a=lesen();const x=a.find(y=>y.id===id);const r=preisFuer(x);if(!r)return;
+      const text=angebotsText(x,r),nr=nummerWa(x.nummer);
+      if(nr)window.open("https://wa.me/"+nr+"?text="+encodeURIComponent(text),"_blank");
+      else if(navigator.share){try{await navigator.share({text})}catch(err){}}
+      else{try{await navigator.clipboard.writeText(text)}catch(err){}}
+      if(x.status==="offen"){x.status="angebot";schreiben(a);zeichnen()}};
     const weg=e.querySelector(".minik[data-weg]");
     if(weg) weg.onclick=()=>{ if(!confirm("Diese Anfrage löschen?"))return;
       schreiben(lesen().filter(x=>x.id!==id)); zeichnen(); };
@@ -276,7 +332,7 @@ autosFuellen(); zeichnen();
 try{
   fetch("https://barankohler.github.io/mietix-preise/preise.json",{cache:"no-store"})
     .then(r=>r.ok?r.json():null)
-    .then(p=>{ if(p&&p.cars&&p.cars.length){ AUTOS=p.cars.map(c=>c.anzeige||c.n); autosFuellen(); } })
+    .then(p=>{ if(p&&p.cars&&p.cars.length){ D=p; AUTOS=p.cars.map(c=>c.anzeige||c.n); autosFuellen(); zeichnen(); } })
     .catch(()=>{});
 }catch(e){}
 window.addEventListener("mietix-abgleich",()=>zeichnen());   // neuer Stand von einem anderen Gerät
