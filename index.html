@@ -65,6 +65,14 @@ button.hell{background:#fff;color:var(--dunkel);border:1px solid var(--rand)}
 .chips .c.an{background:var(--dunkel);color:#fff;border-color:var(--dunkel)}
 .anzform .minik{margin-top:8px}
 .ebez{font-size:13px;color:#1B8A4B;font-weight:800;margin-top:6px}
+.warn{margin-top:8px;padding:9px 11px;border-radius:12px;font-size:13.5px;font-weight:800;line-height:1.4}
+.warn.rot{background:#FDEBEC;color:var(--rot)}.warn.gruen{background:#E8F6EE;color:#1B8A4B}.warn.grau{background:#F2F2F4;color:var(--grau)}
+.anruf{display:flex;gap:8px;margin-bottom:10px}
+.anruf div{flex:1;text-align:center;padding:11px;border-radius:12px;background:#fff;border:1px solid var(--rand);font-weight:800;font-size:14px;cursor:pointer}
+.anruf div.an{background:var(--rot);color:#fff;border-color:var(--rot)}
+.schnell{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
+.schnell .c{padding:8px 11px;border-radius:999px;border:1px solid var(--rand);background:#fff;font-weight:700;font-size:13px;cursor:pointer}
+.anrufmodus .nurvoll{display:none!important}
 .ereihe{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}
 .ereihe.zwei{grid-template-columns:2fr 1fr}
 .minik{text-align:center;padding:11px 3px;border-radius:12px;
@@ -86,23 +94,27 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
 
 <div class="block">
   <p class="feldname">Neue Anfrage</p>
-  <div class="karte">
+  <div class="karte" id="formular">
+    <div class="anruf"><div id="modusAnruf">Anruf: nur das Nötigste</div><div id="modusVoll" class="an">Alles eintragen</div></div>
     <div class="zwei">
       <div><label>Name</label><input id="name" type="text" placeholder="Vorname Nachname"></div>
-      <div><label>Alter</label><input id="alter" type="number" inputmode="numeric" placeholder="z. B. 27"></div>
-    </div>
-    <div class="zwei">
-      <div><label>Kommt aus</label><input id="ort" type="text" placeholder="z. B. Frankfurt"></div>
       <div><label>WhatsApp</label><input id="nummer" type="tel" inputmode="tel" placeholder="0176 1234567"></div>
+    </div>
+    <div id="kundeCheck"></div>
+    <div class="zwei nurvoll">
+      <div><label>Alter</label><input id="alter" type="number" inputmode="numeric" placeholder="z. B. 27"></div>
+      <div><label>Kommt aus</label><input id="ort" type="text" placeholder="z. B. Frankfurt"></div>
     </div>
     <label>Fahrzeugwunsch</label>
     <select id="auto"></select>
+    <div class="schnell" id="schnellVon"><div class="c" data-t="0">Heute</div><div class="c" data-t="1">Morgen</div><div class="c" data-t="fr">Freitag</div><div class="c" data-t="sa">Samstag</div></div>
+    <div class="schnell" id="schnellDauer"><div class="c" data-d="1">1 Tag</div><div class="c" data-d="2">2 Tage</div><div class="c" data-d="3">3 Tage</div><div class="c" data-d="we">Wochenende</div><div class="c" data-d="7">Woche</div></div>
     <div class="zwei">
       <div><label>Von</label><input id="von" type="date"></div>
       <div><label>Bis</label><input id="bis" type="date"></div>
     </div>
-    <label>Notiz</label>
-    <textarea id="notiz" placeholder="z. B. will Samstag abholen, fragt nach Rabatt"></textarea>
+    <label class="nurvoll">Notiz</label>
+    <textarea class="nurvoll" id="notiz" placeholder="z. B. will Samstag abholen, fragt nach Rabatt"></textarea>
     <button id="speichern">Anfrage eintragen</button>
   </div>
 </div>
@@ -224,6 +236,37 @@ function anzahlungForm(x){
     '<div class="hinweisklein" style="font-size:12px;color:var(--grau);margin-top:6px">Zahlart antippen = erhalten, heute. Die Anfrage wird „gebucht“ und die Anzahlung steht schon im Mietvertrag.</div></div>'}
 const zahlDE=v=>{const s=String(v||"").trim();if(!s)return null;const n=parseFloat(s.indexOf(",")>=0?s.replace(/\./g,"").replace(",","."):s);return isNaN(n)?null:n};
 
+/* ---------- Anruf-Modus (nur Name, Nummer, Auto, Datum), Schnellwahl, Kunde prüfen (E2, 28.10.2026) ---------- */
+function modus(anruf){document.getElementById("formular").classList.toggle("anrufmodus",anruf);
+  $("modusAnruf").classList.toggle("an",anruf);$("modusVoll").classList.toggle("an",!anruf);try{localStorage.setItem("mietixAnfrageModus",anruf?"anruf":"voll")}catch(e){}
+  if(anruf)$("nummer").focus()}
+$("modusAnruf").onclick=()=>modus(true);$("modusVoll").onclick=()=>modus(false);
+try{if(localStorage.getItem("mietixAnfrageModus")==="anruf")modus(true)}catch(e){}
+const plusTage=(isoS,n)=>{const d=new Date(isoS+"T12:00");d.setDate(d.getDate()+n);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+[...$("schnellVon").children].forEach(c=>c.onclick=()=>{const h=heuteISO(),w=new Date().getDay();let v=h;
+  if(c.dataset.t==="1")v=plusTage(h,1);if(c.dataset.t==="fr")v=plusTage(h,(5-w+7)%7||7);if(c.dataset.t==="sa")v=plusTage(h,(6-w+7)%7||7);
+  const dauer=$("von").value&&$("bis").value?Math.max(1,Math.round((new Date($("bis").value)-new Date($("von").value))/86400000)):1;
+  $("von").value=v;$("bis").value=plusTage(v,dauer)});
+[...$("schnellDauer").children].forEach(c=>c.onclick=()=>{
+  if(c.dataset.d==="we"){const h=heuteISO(),w=new Date().getDay();const fr=plusTage(h,(5-w+7)%7||7);$("von").value=fr;$("bis").value=plusTage(fr,3)}
+  else{if(!$("von").value)$("von").value=heuteISO();$("bis").value=plusTage($("von").value,+c.dataset.d)}});
+// Kunde prüfen: Stammkunde, offene Schäden, Rechtsstreit (von der Brücke aus der Excel), offene Miete
+const ziffern=n=>String(n||"").replace(/\D/g,"").replace(/^0049/,"0").replace(/^49/,"0");
+const liesJ=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||"")||d}catch(e){return d}};
+function kundeInfo(name,nummer){name=(name||"").trim().toLowerCase();const nr=ziffern(nummer);if(!name&&nr.length<6)return null;
+  const kunden=liesJ("mietixKunden",{}),vorg=liesJ("mietixVorgaenge",[]);
+  const k=Object.keys(kunden).find(n=>n.trim().toLowerCase()===name||(nr.length>=6&&ziffern(kunden[n].telefon)===nr));
+  const d=k?kunden[k]:null;
+  const meine=vorg.filter(v=>(v.name||"").trim().toLowerCase()===name||(nr.length>=6&&ziffern(v.telefon)===nr));
+  const offen=meine.filter(v=>v.vonD&&v.vonD<heuteISO()&&!((v.zahlung||{}).rest||{}).am&&zahlDE(((v.zahlung||{}).rest||{}).betrag));
+  const warn=[];if(d&&d.rechtsstreit)warn.push("RECHTSSTREIT läuft");if(d&&d.schadenOffen)warn.push("offener Schaden "+EUR.format(d.schadenOffen)+(d.schadenFaelle>1?" ("+d.schadenFaelle+" Fälle)":""));
+  if(offen.length)warn.push("Miete nicht bezahlt: "+offen.map(v=>EUR.format(zahlDE(v.zahlung.rest.betrag))+" ("+v.auto+", "+deutsch(v.vonD)+")").join(", "));
+  if(warn.length)return{art:"rot",text:"ACHTUNG: "+warn.join(". ")};
+  if(meine.length)return{art:"gruen",text:"Stammkunde: "+meine.length+(meine.length===1?" Miete":" Mieten")+", zuletzt "+meine[meine.length-1].auto};
+  return d?{art:"grau",text:"Bekannt, noch kein Vertrag im System"}:null}
+function kundeCheck(){const i=kundeInfo($("name").value,$("nummer").value);$("kundeCheck").innerHTML=i?'<div class="warn '+i.art+'">'+i.text+'</div>':""}
+["name","nummer"].forEach(id=>$(id).addEventListener("input",kundeCheck));
+
 function gefiltert(){
   const a=lesen();
   if(SICHT==="heute")  return a.filter(x=>x.tag===heuteISO());
@@ -256,6 +299,7 @@ function zeichnen(){
             .filter(Boolean).join("  |  ")+'</div>'
       +(x.auto||zeitraum ? '<div class="ewunsch">'+[x.auto,zeitraum].filter(Boolean).join("  |  ")+'</div>':'')
       +(x.notiz? '<div class="enotiz">'+x.notiz+'</div>':'')
+      +(function(){const i=kundeInfo(x.name,x.nummer);return i&&i.art==="rot"?'<div class="warn rot">'+i.text+'</div>':""})()
       +preisZeile(x)
       +'<div class="ereihe">'
         +STATUS.map(s=>'<div class="minik '+(x.status===s[0]?"an":"")+'" data-s="'+s[0]+'">'+s[1]+'</div>').join("")
@@ -314,7 +358,7 @@ $("speichern").onclick=()=>{
     auto:$("auto").value, von:$("von").value, bis:$("bis").value,
     notiz:$("notiz").value.trim(), status:"offen" });
   schreiben(a);
-  ["name","alter","ort","nummer","von","bis","notiz"].forEach(k=>$(k).value="");
+  ["name","alter","ort","nummer","von","bis","notiz"].forEach(k=>$(k).value="");$("kundeCheck").innerHTML="";
   SICHT="heute";
   [...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="heute"));
   zeichnen();
@@ -396,7 +440,8 @@ const URL_="https://zbeqrwvlmiulxvhryiku.supabase.co";
 const KEY="sb_publishable_LVkvpgXMpBbq_OXgwOfTqg_ZRcRkFyQ";   // öffentlich gedacht, Schutz über Anmeldung und Regeln in der Datenbank
 const SPEICHER={mietixVorgaenge:{tab:"vorgaenge",pk:"nr",liste:true},mietixAnfragen:{tab:"anfragen",pk:"id",liste:true},
   mietixKunden:{tab:"kunden",pk:"name",liste:false},mietixFahrzeuge:{tab:"fahrzeuge",pk:"name",liste:false},
-  mietixAusgaben:{tab:"ausgaben",pk:"id",liste:true},mietixSperren:{tab:"sperren",pk:"id",liste:true}};
+  mietixAusgaben:{tab:"ausgaben",pk:"id",liste:true},mietixSperren:{tab:"sperren",pk:"id",liste:true},
+  mietixAufgaben:{tab:"aufgaben",pk:"id",liste:true},mietixZustand:{tab:"zustand",pk:"id",liste:true},mietixAutos:{tab:"autos",pk:"name",liste:false},mietixStand:{tab:"stand",pk:"id",liste:false}};
 const roh=Storage.prototype.setItem;
 const lies=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||"")||d}catch(e){return d}};
 const merk=(k,v)=>{try{roh.call(localStorage,k,JSON.stringify(v))}catch(e){}};
