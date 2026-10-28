@@ -56,6 +56,15 @@ button.hell{background:#fff;color:var(--dunkel);border:1px solid var(--rand)}
 .epreis.frei{background:#E8F6EE;color:#1B8A4B}.epreis.belegt{background:#FDEBEC;color:var(--rot)}
 .epreis i{font-style:normal;font-weight:600;color:var(--grau)}
 .minik.angebot{display:block;margin-top:8px;background:#25D366;color:#fff;border-color:#25D366;font-weight:800}
+.minik.anzk{display:block;margin-top:8px;font-weight:800}
+.anzform{margin-top:10px;padding:12px;border-radius:14px;background:#F2F2F4}
+.anzform label{display:block;font-size:12px;font-weight:700;color:var(--grau);margin:8px 0 4px}
+.anzform input{width:100%;border:1px solid var(--rand);border-radius:12px;padding:11px 12px;font:700 17px inherit;background:#fff;min-height:46px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips .c{padding:9px 12px;border-radius:999px;border:1px solid var(--rand);background:#fff;font-weight:700;font-size:13px;cursor:pointer}
+.chips .c.an{background:var(--dunkel);color:#fff;border-color:var(--dunkel)}
+.anzform .minik{margin-top:8px}
+.ebez{font-size:13px;color:#1B8A4B;font-weight:800;margin-top:6px}
 .ereihe{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}
 .ereihe.zwei{grid-template-columns:2fr 1fr}
 .minik{text-align:center;padding:11px 3px;border-radius:12px;
@@ -190,6 +199,31 @@ function preisZeile(x){
   if(!r)return'<div class="epreis"><i>Preis wird geladen …</i></div>';
   return'<div class="epreis frei">Frei. '+EUR.format(r.total)+' für '+r.dauer+(r.dauer===1?" Tag":" Tage")+(r.proz?' <i>(mit '+r.proz+' % Mengenrabatt)</i>':'')+'</div>'}
 
+/* Anzahlung direkt an der Anfrage (Paket B, Teil 2). Text Wort für Wort von der Seite Anzahlung ("Ihre Reservierung"). */
+const QUOTEN=[20,30,50,100],ZAHLART=[["bar","Bar"],["ec","EC-Karte"],["kredit","Kreditkarte"],["ueberweisung","Überweisung"]];
+function reservierungsText(x,r,betrag){
+  const m=r.total,rest=m-betrag,proz=r.liste>0?Math.round((1-m/r.liste)*100):0;
+  const zeitraum=wtKurz(r.von)+" "+kurz(r.von)+" bis "+wtKurz(r.bis)+" "+lang(r.bis)+", "+r.dauer+(r.dauer===1?" Tag":" Tage");
+  const z=["*Ihre Reservierung*","","- Fahrzeug: "+r.c.n,"- Zeitraum: "+zeitraum];
+  if(r.c.kaution)z.push("- Kaution bei Abholung: "+EUR0.format(r.c.kaution)+", kommt nach Rückgabe komplett zurück");
+  z.push("");
+  if(proz>0){z.push("*Ihr Rabatt: "+proz+" %*","Statt "+EUR.format(r.liste)+" nur "+EUR.format(m),"Sie sparen "+EUR.format(r.liste-m),"")}
+  z.push("*Zahlung*","","- Mietpreis: "+EUR.format(m),"- Anzahlung jetzt: "+EUR.format(betrag),
+    rest>0.005?"- Rest bei Abholung: "+EUR.format(rest):"- Damit ist die Miete vollständig bezahlt.","");
+  if(r.dauer>1){z.push("Gilt nur für den kompletten Zeitraum "+zeitraum+" am Stück. Für einzelne Tage daraus gilt der reguläre Tagespreis.","")}
+  z.push("Sobald die Anzahlung eingegangen ist, ist das Fahrzeug für Sie reserviert.","","Soll ich Ihnen die Zahlungsdaten schicken?");
+  return z.join("\n")}
+let ANZ_OFFEN=null;   // Anfrage, bei der das Anzahlungs-Formular aufgeklappt ist
+function anzahlungForm(x){
+  const r=preisFuer(x);if(!r)return"";
+  const quote=(x.anzahlung&&x.anzahlung.quote)||30,betrag=x.anzahlung&&x.anzahlung.betrag?x.anzahlung.betrag:Math.round(r.total*quote/100*100)/100;
+  return'<div class="anzform" data-anzform="1"><label>Anzahlung</label><div class="chips">'+QUOTEN.map(q=>'<div class="c'+(q===quote?" an":"")+'" data-q="'+q+'">'+q+' %</div>').join("")+'</div>'+
+    '<label>Betrag €</label><input class="anzb" inputmode="decimal" value="'+betrag.toLocaleString("de-DE",{minimumFractionDigits:2})+'">'+
+    '<div class="minik wa" data-zahlungsdaten="1">Zahlungsdaten per WhatsApp (Mietpreis, Anzahlung, Rest)</div>'+
+    '<label>Anzahlung erhalten per</label><div class="chips">'+ZAHLART.map(([v,t])=>'<div class="c" data-art="'+v+'">'+t+'</div>').join("")+'</div>'+
+    '<div class="hinweisklein" style="font-size:12px;color:var(--grau);margin-top:6px">Zahlart antippen = erhalten, heute. Die Anfrage wird „gebucht“ und die Anzahlung steht schon im Mietvertrag.</div></div>'}
+const zahlDE=v=>{const s=String(v||"").trim();if(!s)return null;const n=parseFloat(s.indexOf(",")>=0?s.replace(/\./g,"").replace(",","."):s);return isNaN(n)?null:n};
+
 function gefiltert(){
   const a=lesen();
   if(SICHT==="heute")  return a.filter(x=>x.tag===heuteISO());
@@ -232,6 +266,8 @@ function zeichnen(){
       +'</div>'
       // Gebucht: ein Klick öffnet den Mietvertrag schon ausgefüllt (gleicher Speicher auf barankohler.github.io)
       +(x.status!=="abgesagt"&&x.status!=="gebucht"&&preisFuer(x)&&!belegtDurch(x).length?'<div class="minik angebot" data-angebot="1">Angebot per WhatsApp schicken</div>':'')
+      +(x.anzahlung&&x.anzahlung.am?'<div class="ebez">Anzahlung '+EUR.format(x.anzahlung.betrag)+' erhalten am '+deutsch(x.anzahlung.am)+' ('+(ZAHLART.find(z=>z[0]===x.anzahlung.art)||["","?"])[1]+')</div>':'')
+      +(x.status!=="abgesagt"&&!(x.anzahlung&&x.anzahlung.am)&&preisFuer(x)&&!belegtDurch(x).length?(ANZ_OFFEN===x.id?anzahlungForm(x):'<div class="minik anzk" data-anz="1">Anzahlung …</div>'):'')
       +(x.status==="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?anfrage='+x.id+'">Vertrag machen</a>':'')
       +'</div>';
   }).join("");
@@ -249,6 +285,17 @@ function zeichnen(){
       else if(navigator.share){try{await navigator.share({text})}catch(err){}}
       else{try{await navigator.clipboard.writeText(text)}catch(err){}}
       if(x.status==="offen"){x.status="angebot";schreiben(a);zeichnen()}};
+    const ak=e.querySelector(".minik[data-anz]");if(ak)ak.onclick=()=>{ANZ_OFFEN=id;zeichnen()};
+    const form=e.querySelector("[data-anzform]");
+    if(form){const a=lesen(),x=a.find(y=>y.id===id),r=preisFuer(x),inp=form.querySelector(".anzb");
+      form.querySelectorAll(".c[data-q]").forEach(c=>c.onclick=()=>{x.anzahlung=Object.assign({},x.anzahlung||{},{quote:+c.dataset.q,betrag:Math.round(r.total*(+c.dataset.q)/100*100)/100});schreiben(a);zeichnen()});
+      inp.addEventListener("change",()=>{const b=zahlDE(inp.value);if(b){x.anzahlung=Object.assign({},x.anzahlung||{},{betrag:b,quote:0});schreiben(a)}});
+      form.querySelector("[data-zahlungsdaten]").onclick=async()=>{const b=zahlDE(inp.value)||0,text=reservierungsText(x,r,b),nr=nummerWa(x.nummer);
+        if(nr)window.open("https://wa.me/"+nr+"?text="+encodeURIComponent(text),"_blank");
+        else if(navigator.share){try{await navigator.share({text})}catch(err){}}else{try{await navigator.clipboard.writeText(text)}catch(err){}}
+        if(x.status==="offen"){x.status="angebot";schreiben(a);zeichnen()}};
+      form.querySelectorAll(".c[data-art]").forEach(c=>c.onclick=()=>{const b=zahlDE(inp.value);if(!b){alert("Bitte den Betrag eintragen.");return}
+        x.anzahlung={betrag:b,quote:(x.anzahlung||{}).quote||0,art:c.dataset.art,am:heuteISO()};x.status="gebucht";ANZ_OFFEN=null;schreiben(a);zeichnen()})}
     const weg=e.querySelector(".minik[data-weg]");
     if(weg) weg.onclick=()=>{ if(!confirm("Diese Anfrage löschen?"))return;
       schreiben(lesen().filter(x=>x.id!==id)); zeichnen(); };
@@ -349,7 +396,7 @@ const URL_="https://zbeqrwvlmiulxvhryiku.supabase.co";
 const KEY="sb_publishable_LVkvpgXMpBbq_OXgwOfTqg_ZRcRkFyQ";   // öffentlich gedacht, Schutz über Anmeldung und Regeln in der Datenbank
 const SPEICHER={mietixVorgaenge:{tab:"vorgaenge",pk:"nr",liste:true},mietixAnfragen:{tab:"anfragen",pk:"id",liste:true},
   mietixKunden:{tab:"kunden",pk:"name",liste:false},mietixFahrzeuge:{tab:"fahrzeuge",pk:"name",liste:false},
-  mietixAusgaben:{tab:"ausgaben",pk:"id",liste:true}};
+  mietixAusgaben:{tab:"ausgaben",pk:"id",liste:true},mietixSperren:{tab:"sperren",pk:"id",liste:true}};
 const roh=Storage.prototype.setItem;
 const lies=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||"")||d}catch(e){return d}};
 const merk=(k,v)=>{try{roh.call(localStorage,k,JSON.stringify(v))}catch(e){}};
