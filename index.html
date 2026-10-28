@@ -96,6 +96,8 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
   <p class="feldname">Neue Anfrage</p>
   <div class="karte" id="formular">
     <div class="anruf"><div id="modusAnruf">Anruf: nur das Nötigste</div><div id="modusVoll" class="an">Alles eintragen</div></div>
+    <div class="anruf" style="margin-top:0"><div id="einfuegen" style="background:#25D366;color:#fff;border-color:#25D366">WhatsApp-Nachricht einfügen</div></div>
+    <textarea id="einfuegeText" class="versteckt" placeholder="Nachricht hier einfügen. Nummer, Datum und Auto werden erkannt." style="margin-bottom:8px;font-size:14px;min-height:80px"></textarea>
     <div class="zwei">
       <div><label>Name</label><input id="name" type="text" placeholder="Vorname Nachname"></div>
       <div><label>WhatsApp</label><input id="nummer" type="tel" inputmode="tel" placeholder="0176 1234567"></div>
@@ -235,6 +237,33 @@ function anzahlungForm(x){
     '<label>Anzahlung erhalten per</label><div class="chips">'+ZAHLART.map(([v,t])=>'<div class="c" data-art="'+v+'">'+t+'</div>').join("")+'</div>'+
     '<div class="hinweisklein" style="font-size:12px;color:var(--grau);margin-top:6px">Zahlart antippen = erhalten, heute. Die Anfrage wird „gebucht“ und die Anzahlung steht schon im Mietvertrag.</div></div>'}
 const zahlDE=v=>{const s=String(v||"").trim();if(!s)return null;const n=parseFloat(s.indexOf(",")>=0?s.replace(/\./g,"").replace(",","."):s);return isNaN(n)?null:n};
+
+/* ---------- WhatsApp-Nachricht einfügen: Nummer, Datum, Auto, Name erkennen (28.10.2026) ---------- */
+function erkenne(text){const ohneStempel=text.replace(/\[\d{1,2}\.\d{1,2}\.(\d{2,4})?,?\s*\d{1,2}:\d{2}(:\d{2})?\]/g," ");   // WhatsApp-Zeitstempel [28.10., 14:03] raus
+  const t=" "+ohneStempel.replace(/\u00a0/g," ")+" ";const r={};
+  const nr=t.match(/(\+49|0049|0)\s?[1-9][0-9\s\/-]{7,15}/);if(nr)r.nummer=nr[0].replace(/[\s\/-]/g,"").replace(/^0049/,"0").replace(/^\+49/,"0");
+  const jetzt=new Date(),jahr=jetzt.getFullYear();const daten=[];
+  const re=/(\d{1,2})\.\s?(\d{1,2})\.?\s?(\d{2,4})?/g;let m;
+  while((m=re.exec(t))){let d=+m[1],mo=+m[2],j=m[3]?+m[3]:jahr;if(j<100)j+=2000;if(d>31||mo>12)continue;
+    let dt=new Date(j,mo-1,d);if(!m[3]&&dt<jetzt&&(jetzt-dt)>1000*3600*24*30)dt=new Date(j+1,mo-1,d);daten.push(dt)}
+  if(daten.length){const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    daten.sort((a,b)=>a-b);r.von=iso(daten[0]);if(daten.length>1)r.bis=iso(daten[daten.length-1]);
+    else{const tg=t.match(/(\d+)\s*(tag|tage|nacht|nächte|naechte)/i);if(tg){const b=new Date(daten[0]);b.setDate(b.getDate()+(+tg[1]));r.bis=iso(b)}}}
+  const tl=t.toLowerCase().replace(/\s+/g,"");
+  const auto=[["rsq8","Audi RS Q8"],["rs6","Audi RS 6"],["rs5","Audi RS 5 ABT"],["rs3","Audi RS 3 Limousine"],["r8","Audi R8 performance"],["glc63","Mercedes GLC 63 S AMG"],["glc","Mercedes GLC 63 S AMG"],
+    ["c63","Mercedes C 63 S AMG"],["s580","Mercedes-Benz S580L AMG Chauffeur-Paket"],["sklasse","Mercedes-Benz S580L AMG Chauffeur-Paket"],["m850","BMW M 850i"],["850i","BMW M 850i"],["850","BMW M 850i"],
+    ["clubsport","VW Golf 8 GTI Clubsport"],["gti","VW Golf 8 GTI Clubsport"],["golf8diesel","VW Golf 8 2.0 Diesel"],["golfdiesel","VW Golf 8 2.0 Diesel"],["e400","Mercedes E 400 d"],["eklasse","Mercedes E 400 d"]].find(([k])=>tl.indexOf(k)>=0);
+  if(auto&&AUTOS.indexOf(auto[1])>=0)r.auto=auto[1];
+  const wa=text.match(/^\[[^\]]+\]\s*([^:\n]{2,40}):/m);if(wa&&!/mietix|baran|berdan/i.test(wa[1]))r.name=wa[1].trim();
+  else{const n=text.match(/(?:ich bin|mein name ist|hier ist|name:)\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s[A-ZÄÖÜ][a-zäöüß-]+)+)/i);if(n)r.name=n[1]}
+  return r}
+$("einfuegen").onclick=async()=>{const ta=$("einfuegeText");
+  if(ta.classList.contains("versteckt")){ta.classList.remove("versteckt");try{const c=await navigator.clipboard.readText();if(c)ta.value=c}catch(e){}ta.focus();if(!ta.value){ta.placeholder="Nachricht hier einfügen (lange drücken, Einfügen). Dann nochmal auf den grünen Knopf.";return}}
+  const r=erkenne(ta.value);if(!ta.value.trim())return;
+  let n=0;if(r.nummer){$("nummer").value=r.nummer;n++}if(r.name){$("name").value=r.name;n++}if(r.auto){$("auto").value=r.auto;n++}
+  if(r.von){$("von").value=r.von;n++}if(r.bis){$("bis").value=r.bis;n++}
+  $("notiz").value=ta.value.trim().slice(0,300);kundeCheck();ta.classList.add("versteckt");ta.value="";
+  $("einfuegen").textContent=n?"Erkannt: "+n+" Angaben. Rest prüfen, dann eintragen.":"Nichts erkannt, bitte von Hand.";setTimeout(()=>$("einfuegen").textContent="WhatsApp-Nachricht einfügen",3000)};
 
 /* ---------- Anruf-Modus (nur Name, Nummer, Auto, Datum), Schnellwahl, Kunde prüfen (E2, 28.10.2026) ---------- */
 function modus(anruf){document.getElementById("formular").classList.toggle("anrufmodus",anruf);
