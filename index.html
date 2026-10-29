@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Mietix Anfragen</title>
 <style>
-input,select,textarea{font-size:16px;font-family:inherit}
+input,select,textarea{font-size:16px;font-family:inherit;max-width:100%;box-sizing:border-box}input[type=date],input[type=time],input[type=datetime-local]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;min-height:44px}select{min-width:0}
 
 :root{--rot:#C4161C;--dunkel:#2E2E30;--rand:#E2E2E4;--grau:#6F6F72;--bg:#F2F2F4;
   --gruen:#1B8A4B;--gelb:#B07400}
@@ -105,7 +105,7 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
     <div class="anruf" style="margin-top:0"><div id="einfuegen" style="background:#25D366;color:#fff;border-color:#25D366">WhatsApp-Nachricht einfügen</div></div>
     <textarea id="einfuegeText" class="versteckt" placeholder="Nachricht hier einfügen. Nummer, Datum und Auto werden erkannt." style="margin-bottom:8px;font-size:14px;min-height:80px"></textarea>
     <div class="zwei">
-      <div><label>Name</label><input id="name" type="text" autocomplete="off" placeholder="Name tippen, Stammkunde antippen"></div>
+      <div><label>Name</label><input id="name" type="text" autocomplete="off" placeholder="z. B. Max Muster"></div>
       <div><label>WhatsApp</label><input id="nummer" type="tel" inputmode="tel" placeholder="0176 1234567"></div>
     </div>
     <div id="kundeCheck"></div>
