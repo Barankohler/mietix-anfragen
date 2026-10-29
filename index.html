@@ -466,6 +466,12 @@ function autosFuellen(){
   if(vorher) $("auto").value=vorher;
 }
 autosFuellen(); zeichnen();
+// Von der Belegungstafel: ?auto=&von=&bis= füllt die neue Anfrage vor, ?zeige=ID zeigt alle Anfragen (29.10.2026)
+(function(){const q=new URLSearchParams(location.search);if(![...q.keys()].length)return;history.replaceState(null,"",location.pathname);
+  if(q.get("auto")){const a=q.get("auto");if(![...$("auto").options].some(o=>o.value===a)){const o=document.createElement("option");o.textContent=a;$("auto").appendChild(o)}$("auto").value=a}
+  if(q.get("von"))$("von").value=q.get("von");if(q.get("bis"))$("bis").value=q.get("bis");
+  if(q.get("auto")||q.get("von")){$("name").focus();if(typeof entwurfMerken==="function")entwurfMerken()}
+  if(q.get("zeige")){SICHT="alle";[...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="alle"));zeichnen()}})();
 try{
   fetch("https://barankohler.github.io/mietix-preise/preise.json",{cache:"no-store"})
     .then(r=>r.ok?r.json():null)
