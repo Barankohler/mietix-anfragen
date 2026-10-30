@@ -224,7 +224,7 @@ function preisZeile(x){
   const b=belegtDurch(x),r=preisFuer(x);
   if(b.length)return'<div class="epreis belegt">Belegt: '+b.map(t=>t.name+" bis "+deutsch(t.bis)).join(", ")+'</div>';
   if(!r)return'<div class="epreis"><i>Preis wird geladen …</i></div>';
-  return'<div class="epreis frei">Frei. '+EUR.format(r.total)+' für '+r.dauer+(r.dauer===1?" Tag":" Tage")+(r.abgemacht?' <i>(abgemachter Preis'+(x.angebot.kmExtra?', +'+x.angebot.kmExtra+' km pro Tag':'')+')</i>':(r.proz?' <i>(mit '+r.proz+' % Mengenrabatt)</i>':''))+'</div>'}
+  return'<div class="epreis frei">Frei. '+EUR.format(r.total)+' für '+r.dauer+(r.dauer===1?" Tag":" Tage")+(r.abgemacht?' <i>(abgemachter Preis'+(x.angebot.kmExtra?', +'+x.angebot.kmExtra+' Extra-km':'')+')</i>':(r.proz?' <i>(mit '+r.proz+' % Mengenrabatt)</i>':''))+'</div>'}
 
 /* Anzahlung direkt an der Anfrage (Paket B, Teil 2). Text Wort für Wort von der Seite Anzahlung ("Ihre Reservierung"). */
 const QUOTEN=[20,30,50,100],ZAHLART=[["bar","Bar"],["ec","EC-Karte"],["kredit","Kreditkarte"],["ueberweisung","Überweisung"]];
@@ -248,7 +248,7 @@ function anzahlungForm(x){
     '<label>Betrag €</label><input class="anzb" inputmode="decimal" value="'+betrag.toLocaleString("de-DE",{minimumFractionDigits:2})+'">'+
     '<div class="minik wa" data-zahlungsdaten="1">Zahlungsdaten per WhatsApp (Mietpreis, Anzahlung, Rest)</div>'+
     '<label>Anzahlung erhalten per</label><div class="chips">'+ZAHLART.map(([v,t])=>'<div class="c" data-art="'+v+'">'+t+'</div>').join("")+'</div>'+
-    '<div class="hinweisklein" style="font-size:12px;color:var(--grau);margin-top:6px">Zahlart antippen = erhalten, heute. Die Anfrage wird „gebucht“ und die Anzahlung steht schon im Mietvertrag.</div></div>'}
+    '<div class="hinweisklein" style="font-size:12px;color:var(--grau);margin-top:6px">Zahlart antippen = heute erhalten. Die Anfrage wird „gebucht“, und die Anzahlung steht beim Vertrag machen schon drin.</div></div>'}
 const zahlDE=v=>{const s=String(v||"").trim();if(!s)return null;const n=parseFloat(s.indexOf(",")>=0?s.replace(/\./g,"").replace(",","."):s);return isNaN(n)?null:n};
 
 /* ---------- WhatsApp-Nachricht einfügen: Nummer, Datum, Auto, Name erkennen (28.10.2026) ---------- */
@@ -438,7 +438,7 @@ function tagesText(){
   const z={offen:0,angebot:0,gebucht:0,abgesagt:0};
   liste.forEach(x=>{ z[x.status]=(z[x.status]||0)+1; });
   let t="*"+titel+", "+deutsch(SICHT==="gestern"?gesternISO():heuteISO())+"*\n\n";
-  t+=liste.length+" gesamt, "+z.offen+" offen, "+z.angebot+" Angebot raus, "
+  t+=liste.length+" gesamt, "+z.offen+" offen, "+z.angebot+" Angebot, "
     +z.gebucht+" gebucht, "+z.abgesagt+" abgesagt\n\n";
   liste.forEach(x=>{
     const zr = x.von ? deutsch(x.von)+(x.bis?" bis "+deutsch(x.bis):"") : "";
