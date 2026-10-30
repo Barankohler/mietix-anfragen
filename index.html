@@ -77,6 +77,7 @@ button.hell{background:#fff;color:var(--dunkel);border:1px solid var(--rand)}
 .anruf div.an{background:var(--rot);color:#fff;border-color:var(--rot)}
 .schnell{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
 .schnell .c{padding:8px 11px;border-radius:999px;border:1px solid var(--rand);background:#fff;font-weight:700;font-size:13px;cursor:pointer}
+.schnell .c.an{background:var(--rot,#C0141B);border-color:var(--rot,#C0141B);color:#fff}.sLab{font-size:13px;color:#6F6F72;margin:8px 0 0}.uhrF{margin-top:6px}
 .anrufmodus .nurvoll{display:none!important}
 .ereihe{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}
 .ereihe.zwei{grid-template-columns:2fr 1fr}
@@ -116,11 +117,14 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
     </div>
     <label>Fahrzeugwunsch</label>
     <select id="auto"></select>
-    <div class="schnell" id="schnellVon"><div class="c" data-t="0">Heute</div><div class="c" data-t="1">Morgen</div><div class="c" data-t="fr">Freitag</div><div class="c" data-t="sa">Samstag</div></div>
-    <div class="schnell" id="schnellDauer"><div class="c" data-d="1">1 Tag</div><div class="c" data-d="2">2 Tage</div><div class="c" data-d="3">3 Tage</div><div class="c" data-d="we">Wochenende</div><div class="c" data-d="7">Woche</div></div>
+    <label>Mietzeitraum</label>
+    <div class="sLab">Ab heute:</div>
+    <div class="schnell" id="schnellDauer"><div class="c" data-d="1">1 Tag</div><div class="c" data-d="2">2 Tage</div><div class="c" data-d="3">3 Tage</div><div class="c" data-d="7">1 Woche</div></div>
+    <div class="sLab">Wochenende (nächstes):</div>
+    <div class="schnell" id="schnellWe"><div class="c" data-we="5,1">Fr bis Sa</div><div class="c" data-we="5,2">Fr bis So</div><div class="c" data-we="6,2">Sa bis Mo</div><div class="c" data-we="5,3">Fr bis Mo</div></div>
     <div class="zwei">
-      <div><label>Von</label><input id="von" type="date"></div>
-      <div><label>Bis</label><input id="bis" type="date"></div><input type="hidden" id="vonU"><input type="hidden" id="bisU">
+      <div><label>Von</label><input id="von" type="date"><input id="vonU" type="time" value="10:00" class="uhrF"></div>
+      <div><label>Bis</label><input id="bis" type="date"><input id="bisU" type="time" value="10:00" class="uhrF"></div>
     </div>
     <label class="nurvoll">Notiz</label>
     <textarea class="nurvoll" id="notiz" placeholder="z. B. will Samstag abholen, fragt nach Rabatt"></textarea>
@@ -286,13 +290,13 @@ function modus(anruf){document.getElementById("formular").classList.toggle("anru
 $("modusAnruf").onclick=()=>modus(true);$("modusVoll").onclick=()=>modus(false);
 try{if(localStorage.getItem("mietixAnfrageModus")==="anruf")modus(true)}catch(e){}
 const plusTage=(isoS,n)=>{const d=new Date(isoS+"T12:00");d.setDate(d.getDate()+n);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
-[...$("schnellVon").children].forEach(c=>c.onclick=()=>{const h=heuteISO(),w=new Date().getDay();let v=h;
-  if(c.dataset.t==="1")v=plusTage(h,1);if(c.dataset.t==="fr")v=plusTage(h,(5-w+7)%7||7);if(c.dataset.t==="sa")v=plusTage(h,(6-w+7)%7||7);
-  const dauer=$("von").value&&$("bis").value?Math.max(1,Math.round((new Date($("bis").value)-new Date($("von").value))/86400000)):1;
-  $("von").value=v;$("bis").value=plusTage(v,dauer)});
-[...$("schnellDauer").children].forEach(c=>c.onclick=()=>{
-  if(c.dataset.d==="we"){const h=heuteISO(),w=new Date().getDay();const fr=plusTage(h,(5-w+7)%7||7);$("von").value=fr;$("bis").value=plusTage(fr,3)}
-  else{if(!$("von").value)$("von").value=heuteISO();$("bis").value=plusTage($("von").value,+c.dataset.d)}});
+// Gleiche Knöpfe wie im Mietvertrag: Tage zählen ab heute, Wochenende ist das nächste (heute zählt mit)
+function zeitraumMarken(){document.querySelectorAll("#schnellDauer .c,#schnellWe .c").forEach(c=>c.classList.toggle("an",c.dataset.von===$("von").value&&c.dataset.bis===$("bis").value))}
+[...$("schnellDauer").children].forEach(c=>c.onclick=()=>{const h=heuteISO();$("von").value=h;$("bis").value=plusTage(h,+c.dataset.d);
+  c.dataset.von=$("von").value;c.dataset.bis=$("bis").value;zeitraumMarken();$("bis").dispatchEvent(new Event("input",{bubbles:true}))});
+[...$("schnellWe").children].forEach(c=>c.onclick=()=>{const [wd,n]=c.dataset.we.split(",").map(Number),h=heuteISO(),w=new Date().getDay();
+  const v=plusTage(h,(wd-w+7)%7);$("von").value=v;$("bis").value=plusTage(v,n);c.dataset.von=v;c.dataset.bis=$("bis").value;zeitraumMarken();$("bis").dispatchEvent(new Event("input",{bubbles:true}))});
+["von","bis"].forEach(i=>$(i).addEventListener("change",zeitraumMarken));
 // Kunde prüfen: Stammkunde, offene Schäden, Rechtsstreit (von der Brücke aus der Excel), offene Miete
 const ziffern=n=>String(n||"").replace(/\D/g,"").replace(/^0049/,"0").replace(/^49/,"0");
 const liesJ=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||"")||d}catch(e){return d}};
@@ -418,7 +422,7 @@ $("speichern").onclick=()=>{
     notiz:$("notiz").value.trim(), status:"offen" });
   schreiben(a);
   // Auto auch zurück auf "noch offen", sonst steht bei der nächsten Anfrage das alte Auto drin (30.10.2026)
-  ["name","alter","ort","nummer","auto","von","bis","vonU","bisU","notiz"].forEach(k=>$(k).value="");$("auto").dispatchEvent(new Event("change"));$("kundeCheck").innerHTML="";entwurfWeg();
+  ["name","alter","ort","nummer","auto","von","bis","vonU","bisU","notiz"].forEach(k=>$(k).value="");$("vonU").value=$("bisU").value="10:00";zeitraumMarken();$("auto").dispatchEvent(new Event("change"));$("kundeCheck").innerHTML="";entwurfWeg();
   SICHT="heute";
   [...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="heute"));
   zeichnen();
