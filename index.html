@@ -213,7 +213,8 @@ function belegtDurch(x){
   if(!x.auto||!x.von||!x.bis)return[];
   const ueber=(v1,b1,v2,b2)=>v1<b2&&b1>v2,t=[];
   let vorg=[];try{vorg=JSON.parse(localStorage.getItem("mietixVorgaenge")||"[]")}catch(e){}
-  vorg.forEach(v=>{if(v.auto===x.auto&&v.status!=="zurück"&&v.vonD&&v.bisD&&ueber(x.von,x.bis,v.vonD,v.bisD))t.push({name:v.name,bis:v.bisD})});
+  const nG=s=>String(s||"").toLowerCase().replace(/\s+/g,"");   // der eigene Mietvertrag zählt nicht als belegt (30.10.2026)
+  vorg.forEach(v=>{if((x.vertrag&&v.nr===x.vertrag)||(x.name&&nG(v.name)===nG(x.name)))return;if(v.auto===x.auto&&v.status!=="zurück"&&v.vonD&&v.bisD&&ueber(x.von,x.bis,v.vonD,v.bisD))t.push({name:v.name,bis:v.bisD})});
   lesen().forEach(a=>{if(a.id!==x.id&&a.status==="gebucht"&&a.auto===x.auto&&a.von&&a.bis&&ueber(x.von,x.bis,a.von,a.bis))t.push({name:a.name||"Anfrage",bis:a.bis})});
   // Sperren aus dem Kalender zählen auch (Werkstatt, privat), wie im Mietvertrag (30.10.2026)
   let sp=[];try{sp=JSON.parse(localStorage.getItem("mietixSperren")||"[]")}catch(e){}
@@ -416,7 +417,8 @@ $("speichern").onclick=()=>{
     auto:$("auto").value, von:$("von").value, bis:$("bis").value, vonU:$("vonU").value, bisU:$("bisU").value,
     notiz:$("notiz").value.trim(), status:"offen" });
   schreiben(a);
-  ["name","alter","ort","nummer","von","bis","vonU","bisU","notiz"].forEach(k=>$(k).value="");$("kundeCheck").innerHTML="";entwurfWeg();
+  // Auto auch zurück auf "noch offen", sonst steht bei der nächsten Anfrage das alte Auto drin (30.10.2026)
+  ["name","alter","ort","nummer","auto","von","bis","vonU","bisU","notiz"].forEach(k=>$(k).value="");$("auto").dispatchEvent(new Event("change"));$("kundeCheck").innerHTML="";entwurfWeg();
   SICHT="heute";
   [...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="heute"));
   zeichnen();
