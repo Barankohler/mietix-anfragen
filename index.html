@@ -105,7 +105,7 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
     <div class="anruf" style="margin-top:0"><div id="einfuegen" style="background:#25D366;color:#fff;border-color:#25D366">WhatsApp-Nachricht einfügen</div></div>
     <textarea id="einfuegeText" class="versteckt" placeholder="Nachricht hier einfügen. Nummer, Datum und Auto werden erkannt." style="margin-bottom:8px;font-size:14px;min-height:80px"></textarea>
     <div class="zwei">
-      <div><label>Name</label><input id="name" type="text" autocomplete="off" placeholder="z. B. Max Muster"></div>
+      <div><label>Name</label><input id="name" type="text" autocomplete="off" placeholder="Max Muster"></div>
       <div><label>WhatsApp</label><input id="nummer" type="tel" inputmode="tel" placeholder="0176 1234567"></div>
     </div>
     <div id="kundeCheck"></div>
@@ -120,7 +120,7 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
     <div class="schnell" id="schnellDauer"><div class="c" data-d="1">1 Tag</div><div class="c" data-d="2">2 Tage</div><div class="c" data-d="3">3 Tage</div><div class="c" data-d="we">Wochenende</div><div class="c" data-d="7">Woche</div></div>
     <div class="zwei">
       <div><label>Von</label><input id="von" type="date"></div>
-      <div><label>Bis</label><input id="bis" type="date"></div>
+      <div><label>Bis</label><input id="bis" type="date"></div><input type="hidden" id="vonU"><input type="hidden" id="bisU">
     </div>
     <label class="nurvoll">Notiz</label>
     <textarea class="nurvoll" id="notiz" placeholder="z. B. will Samstag abholen, fragt nach Rabatt"></textarea>
@@ -140,13 +140,14 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
 </div>
 
 <div class="block">
-  <p class="feldname">Tag teilen und sichern</p>
+  <p class="feldname">Tag teilen</p>
   <div class="karte">
     <button id="tagSenden">Tagesübersicht an WhatsApp</button>
+    <details style="margin-top:10px"><summary style="font-size:14px;color:#8A8A8E;font-weight:700;cursor:pointer;padding:8px 0">Alte Sicherung (nur im Notfall, alles ist ohnehin gespeichert)</summary>
     <button id="ausgeben" class="hell">Alle Anfragen sichern</button>
     <button id="einlesen" class="hell">Gesicherte Anfragen einlesen</button>
     <textarea id="sicherung" placeholder="Hier erscheint die Sicherung, oder hier einfügen zum Einlesen"
-      style="margin-top:12px;font-size:16px;min-height:90px"></textarea>
+      style="margin-top:12px;font-size:16px;min-height:90px"></textarea></details>
   </div>
 </div>
 
@@ -194,8 +195,10 @@ function preisFuer(x){
   if(!D||!x.auto||!x.von||!x.bis)return null;
   const c=D.cars.find(c=>(c.anzeige||c.n)===x.auto);if(!c)return null;
   const von=ausISO(x.von),bis=ausISO(x.bis),dauer=Math.round((bis-von)/86400000);if(dauer<1)return null;
-  const gm=wochenmiete(c,wtIndex(von),dauer),pf=1-D.rabatt[Math.min(dauer,D.days)-1],total=gm*pf;
-  return{c,von,bis,dauer,liste:gm,total,ersparnis:gm-total,proz:gm>0?Math.round((gm-total)/gm*100):0}}
+  const gm=wochenmiete(c,wtIndex(von),dauer),pf=1-D.rabatt[Math.min(dauer,D.days)-1];
+  const ab=x.angebot&&x.angebot.preis&&x.angebot.auto===x.auto&&x.angebot.von===x.von&&x.angebot.bis===x.bis?x.angebot:null;   // im Kalender abgemacht (30.10.2026)
+  const total=ab?ab.preis:gm*pf;
+  return{c,von,bis,dauer,liste:gm,total,ersparnis:Math.max(0,gm-total),proz:gm>0?Math.max(0,Math.round((gm-total)/gm*100)):0,abgemacht:!!ab}}
 function angebotsText(x,r){
   const kmGesamt=D.freiKm*r.dauer;
   const zeitraum=wtKurz(r.von)+" "+kurz(r.von)+" bis "+wtKurz(r.bis)+" "+lang(r.bis)+", "+r.dauer+(r.dauer===1?" Tag":" Tage");
@@ -218,7 +221,7 @@ function preisZeile(x){
   const b=belegtDurch(x),r=preisFuer(x);
   if(b.length)return'<div class="epreis belegt">Belegt: '+b.map(t=>t.name+" bis "+deutsch(t.bis)).join(", ")+'</div>';
   if(!r)return'<div class="epreis"><i>Preis wird geladen …</i></div>';
-  return'<div class="epreis frei">Frei. '+EUR.format(r.total)+' für '+r.dauer+(r.dauer===1?" Tag":" Tage")+(r.proz?' <i>(mit '+r.proz+' % Mengenrabatt)</i>':'')+'</div>'}
+  return'<div class="epreis frei">Frei. '+EUR.format(r.total)+' für '+r.dauer+(r.dauer===1?" Tag":" Tage")+(r.abgemacht?' <i>(abgemachter Preis'+(x.angebot.kmExtra?', +'+x.angebot.kmExtra+' km pro Tag':'')+')</i>':(r.proz?' <i>(mit '+r.proz+' % Mengenrabatt)</i>':''))+'</div>'}
 
 /* Anzahlung direkt an der Anfrage (Paket B, Teil 2). Text Wort für Wort von der Seite Anzahlung ("Ihre Reservierung"). */
 const QUOTEN=[20,30,50,100],ZAHLART=[["bar","Bar"],["ec","EC-Karte"],["kredit","Kreditkarte"],["ueberweisung","Überweisung"]];
@@ -331,7 +334,7 @@ function zeichnen(){
   }
   $("liste").innerHTML=liste.map(x=>{
     const wa=nummerWa(x.nummer);
-    const zeitraum = x.von ? deutsch(x.von)+(x.bis?" bis "+deutsch(x.bis):"") : "";
+    const zeitraum = x.von ? deutsch(x.von)+(x.vonU?" "+x.vonU:"")+(x.bis?" bis "+deutsch(x.bis)+(x.bisU?" "+x.bisU:""):"") : "";
     return '<div class="eintrag '+x.status+'" data-id="'+x.id+'">'
       +'<div class="ekopf"><span class="ename">'+(x.name||"ohne Namen")+'</span>'
       +'<span class="ezeit">'+x.uhr+(SICHT==="alle"?"  "+deutsch(x.tag):"")+'</span></div>'
@@ -349,7 +352,7 @@ function zeichnen(){
         +'<div class="minik weg" data-weg="1">Löschen</div>'
       +'</div>'
       // Gebucht: ein Klick öffnet den Mietvertrag schon ausgefüllt (gleicher Speicher auf barankohler.github.io)
-      +(x.status!=="abgesagt"&&x.status!=="gebucht"&&preisFuer(x)&&!belegtDurch(x).length?'<div class="minik angebot" data-angebot="1">Angebot per WhatsApp schicken</div>':'')
+      +(x.status!=="abgesagt"&&x.status!=="gebucht"&&preisFuer(x)&&!belegtDurch(x).length?'<a class="minik angebot" href="https://barankohler.github.io/mietix-belegung/?zeige=angebot&anfrage='+encodeURIComponent(x.id)+'">'+(x.angebot?'Angebot ändern oder nochmal schicken':'Angebot schicken (Kilometer, Rabatt)')+'</a>':'')
       +(x.anzahlung&&x.anzahlung.am?'<div class="ebez">Anzahlung '+EUR.format(x.anzahlung.betrag)+' erhalten am '+deutsch(x.anzahlung.am)+' ('+(ZAHLART.find(z=>z[0]===x.anzahlung.art)||["","?"])[1]+')</div>':'')
       +(x.status!=="abgesagt"&&!(x.anzahlung&&x.anzahlung.am)&&preisFuer(x)&&!belegtDurch(x).length?(ANZ_OFFEN===x.id?anzahlungForm(x):'<div class="minik anzk" data-anz="1">Anzahlung …</div>'):'')
       +(x.status==="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?anfrage='+x.id+'">Vertrag machen</a>':'')
@@ -387,7 +390,7 @@ function zeichnen(){
 }
 
 /* Entwurf (Sicherheitsnetz 28.10.2026): die Felder werden beim Tippen gemerkt und nach einem Neuladen wieder eingesetzt */
-const ENTWURF_FELDER=["name","alter","ort","nummer","auto","von","bis","notiz"];
+const ENTWURF_FELDER=["name","alter","ort","nummer","auto","von","bis","vonU","bisU","notiz"];
 let entwurfTimer=null;
 function entwurfMerken(){clearTimeout(entwurfTimer);entwurfTimer=setTimeout(()=>{const e={zeit:new Date().toISOString()};ENTWURF_FELDER.forEach(k=>e[k]=$(k).value);
   if(!(e.name||"").trim()&&!(e.nummer||"").trim()){try{localStorage.removeItem("mietixEntwurfAnfrage")}catch(x){}return}
@@ -407,10 +410,10 @@ $("speichern").onclick=()=>{
   a.push({ id:String(Date.now())+Math.random().toString(36).slice(2,6),
     tag:heuteISO(), uhr:String(jetzt.getHours()).padStart(2,"0")+":"+String(jetzt.getMinutes()).padStart(2,"0"),
     name:name, alter:$("alter").value.trim(), ort:$("ort").value.trim(), nummer:nummer,
-    auto:$("auto").value, von:$("von").value, bis:$("bis").value,
+    auto:$("auto").value, von:$("von").value, bis:$("bis").value, vonU:$("vonU").value, bisU:$("bisU").value,
     notiz:$("notiz").value.trim(), status:"offen" });
   schreiben(a);
-  ["name","alter","ort","nummer","von","bis","notiz"].forEach(k=>$(k).value="");$("kundeCheck").innerHTML="";entwurfWeg();
+  ["name","alter","ort","nummer","von","bis","vonU","bisU","notiz"].forEach(k=>$(k).value="");$("kundeCheck").innerHTML="";entwurfWeg();
   SICHT="heute";
   [...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="heute"));
   zeichnen();
@@ -475,7 +478,7 @@ autosFuellen(); zeichnen();
 // Von der Belegungstafel: ?auto=&von=&bis= füllt die neue Anfrage vor, ?zeige=ID zeigt alle Anfragen (29.10.2026)
 (function(){const q=new URLSearchParams(location.search);if(![...q.keys()].length)return;history.replaceState(null,"",location.pathname);
   if(q.get("auto")){const a=q.get("auto");if(![...$("auto").options].some(o=>o.value===a)){const o=document.createElement("option");o.textContent=a;$("auto").appendChild(o)}$("auto").value=a}
-  if(q.get("von"))$("von").value=q.get("von");if(q.get("bis"))$("bis").value=q.get("bis");
+  if(q.get("von"))$("von").value=q.get("von");if(q.get("bis"))$("bis").value=q.get("bis");if(q.get("vonU"))$("vonU").value=q.get("vonU");if(q.get("bisU"))$("bisU").value=q.get("bisU");
   if(q.get("auto")||q.get("von")){$("name").focus();if(typeof entwurfMerken==="function")entwurfMerken()}
   if(q.get("zeige")){SICHT="alle";[...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="alle"));zeichnen()}})();
 try{
