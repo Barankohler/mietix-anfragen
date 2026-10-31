@@ -416,7 +416,15 @@ ENTWURF_FELDER.forEach(k=>["input","change"].forEach(ev=>$(k).addEventListener(e
 (function(){let e=null;try{e=JSON.parse(localStorage.getItem("mietixEntwurfAnfrage")||"null")}catch(x){}
   if(!e||Date.now()-new Date(e.zeit).getTime()>48*3600e3)return;
   ENTWURF_FELDER.forEach(k=>{if(e[k]!==undefined&&e[k]!=="")$(k).value=e[k]});$("entwurfHinweis").classList.remove("versteckt");kundeCheck()})();
-$("entwurfLeeren").onclick=ev=>{ev.preventDefault();ENTWURF_FELDER.filter(k=>k!=="auto").forEach(k=>$(k).value="");$("kundeCheck").innerHTML="";entwurfWeg()};
+// Leeren nur mit Rückfrage, danach 15 Sekunden „Wiederherstellen“ (31.10.2026, Baran: jedes Löschen nachfragen)
+$("entwurfLeeren").onclick=ev=>{ev.preventDefault();if(!confirm("Angefangene Anfrage wirklich leeren?"))return;
+  const alt={};ENTWURF_FELDER.forEach(k=>{alt[k]=$(k).value});
+  ENTWURF_FELDER.filter(k=>k!=="auto").forEach(k=>$(k).value="");$("kundeCheck").innerHTML="";entwurfWeg();
+  const h=$("entwurfHinweis"),vorher=h.innerHTML;h.classList.remove("versteckt");h.innerHTML='Felder geleert. <a href="#" id="entwurfZurueck" style="color:#C4161C">Wiederherstellen</a>';
+  const t=setTimeout(()=>{h.classList.add("versteckt");h.innerHTML=vorher;$("entwurfLeeren").onclick=LEEREN},15000);
+  $("entwurfZurueck").onclick=e=>{e.preventDefault();clearTimeout(t);ENTWURF_FELDER.forEach(k=>{$(k).value=alt[k]});$(ENTWURF_FELDER[0]).dispatchEvent(new Event("input",{bubbles:true}));
+    h.innerHTML=vorher;h.classList.add("versteckt");$("entwurfLeeren").onclick=LEEREN}};
+const LEEREN=$("entwurfLeeren").onclick;
 $("speichern").onclick=()=>{
   const name=$("name").value.trim();
   const nummer=$("nummer").value.trim();
