@@ -318,6 +318,12 @@ function kundeCheck(){const i=kundeInfo($("name").value,$("nummer").value);$("ku
   if(k.alter&&!$("alter").value)$("alter").value=k.alter;if(k.ort&&!$("ort").value)$("ort").value=k.ort;kundeCheck()});
   if(window.mietixKunden)los();else window.addEventListener("mietix-kunden-bereit",los)})();
 
+// Nachfassen (31.10.2026): Angebot seit 2 Tagen ohne Antwort, ein Tipp öffnet WhatsApp mit fertigem Text
+function nachfassen(x,wa){if(x.status!=="angebot"||!wa)return"";
+  if(x.nachgefasst)return'<div class="ebez">Nachgefragt am '+deutsch(x.nachgefasst)+'</div>';
+  const seit=Math.round((new Date(heuteISO())-new Date(String((x.angebot&&x.angebot.am)||x.tag).slice(0,10)))/864e5);if(seit<2)return"";
+  const vn=String(x.name||"").trim().split(/\s+/)[0],t="Hallo"+(vn?" "+vn:"")+",\n\nich wollte kurz nachfragen, ob unser Angebot"+(x.auto?" für den "+x.auto:"")+(x.von?" vom "+deutsch(x.von)+(x.bis?" bis "+deutsch(x.bis):""):"")+" noch passt. Gerne halte ich Ihnen das Fahrzeug frei.\n\nViele Grüße\nIhr Mietix-Team";
+  return'<a class="minik wa" style="display:block;margin-top:8px" data-nf="'+x.id+'" href="https://wa.me/'+wa+'?text='+encodeURIComponent(t)+'" target="_blank">Nachfragen: seit '+seit+' Tagen keine Antwort</a>'}
 function gefiltert(){
   const a=lesen();
   if(SICHT==="heute")  return a.filter(x=>x.tag===heuteISO()||(x.tag===gesternISO()&&x.status==="offen"));   // offene von gestern bleiben sichtbar (Liste Punkt 19)
@@ -364,8 +370,10 @@ function zeichnen(){
       +(x.anzahlung&&x.anzahlung.am?'<div class="ebez">Anzahlung '+EUR.format(x.anzahlung.betrag)+' erhalten am '+deutsch(x.anzahlung.am)+' ('+(ZAHLART.find(z=>z[0]===x.anzahlung.art)||["","?"])[1]+')</div>':'')
       +(x.status!=="abgesagt"&&!(x.anzahlung&&x.anzahlung.am)&&preisFuer(x)&&!belegtDurch(x).length?(ANZ_OFFEN===x.id?anzahlungForm(x):'<div class="minik anzk" data-anz="1">Anzahlung …</div>'):'')
       +(x.status==="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?anfrage='+x.id+'">Mietvertrag machen</a>':'')
+      +nachfassen(x,wa)
       +'</div>';
   }).join("");
+  $("liste").querySelectorAll("[data-nf]").forEach(k=>k.addEventListener("click",()=>{const a=lesen(),y=a.find(z=>z.id===k.dataset.nf);if(y){y.nachgefasst=heuteISO();schreiben(a);setTimeout(zeichnen,800)}}));
 
   [...$("liste").querySelectorAll(".eintrag")].forEach(e=>{
     const id=e.dataset.id;
@@ -808,6 +816,14 @@ window.addEventListener("online",abgleichen);
 setInterval(abgleichen,60000);
 zeigen();abgleichen();
 })();
+</script><script>
+/* ‹ Start oben links (31.10.2026) */
+(function(){if(document.querySelector(".mxStart"))return;
+  const ziel=document.querySelector("header h1")||document.querySelector(".topbar");if(!ziel)return;
+  const st=document.createElement("style");st.textContent=".mxStart{display:inline-flex;align-items:center;gap:2px;margin-right:10px;padding:5px 11px 5px 8px;border-radius:999px;border:1.5px solid currentColor;color:inherit;text-decoration:none;font:800 13px/1 -apple-system,Inter,system-ui,sans-serif;letter-spacing:0;text-transform:none;vertical-align:middle;opacity:.8;-webkit-tap-highlight-color:transparent}.mxStart b{font-size:17px;line-height:13px;margin-top:-2px}.mxStart:active{opacity:.5}header h1{white-space:nowrap}header .mxStart,.topbar .mxStart{float:none!important;margin:0 10px 0 0!important;padding:5px 11px 5px 8px!important;font-size:13px!important;color:inherit!important}@media(max-width:360px){header .mxStart,.topbar .mxStart{padding:4px 8px 4px 6px!important;margin-right:6px!important;font-size:12px!important}}@media(max-width:480px){.topbar .brand-sub{display:none}}.topbar{overflow:hidden}";
+  document.head.appendChild(st);
+  const a=document.createElement("a");a.className="mxStart";a.href="https://barankohler.github.io/mietix-zentrale/";a.innerHTML="<b>‹</b>Start";a.setAttribute("aria-label","Zur Startseite");
+  ziel.insertBefore(a,ziel.firstChild)})();
 </script><script>
 /* Einheit fest im Zahlenfeld (31.10.2026) */
 (function(){if(window.mxEinheit)return;
