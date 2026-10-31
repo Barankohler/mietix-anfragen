@@ -309,7 +309,9 @@ function kundeInfo(name,nummer){name=(name||"").trim().toLowerCase();const nr=zi
   const warn=[];if(d&&d.rechtsstreit)warn.push("RECHTSSTREIT läuft");if(d&&d.schadenOffen)warn.push("offener Schaden "+EUR.format(d.schadenOffen)+(d.schadenFaelle>1?" ("+d.schadenFaelle+" Fälle)":""));
   if(offen.length)warn.push("Miete nicht bezahlt: "+offen.map(v=>EUR.format(zahlDE(v.zahlung.rest.betrag))+" ("+v.auto+", "+deutsch(v.vonD)+")").join(", "));
   if(warn.length)return{art:"rot",text:"ACHTUNG: "+warn.join(". ")};
-  if(meine.length)return{art:"gruen",text:"Stammkunde: "+meine.length+(meine.length===1?" Miete":" Mieten")+", zuletzt "+meine[meine.length-1].auto};
+  // Stammkunde erst ab 2 Mieten (Baran, 31.10.2026)
+  if(meine.length>=2)return{art:"gruen",text:"Stammkunde: "+meine.length+" Mieten, zuletzt "+meine[meine.length-1].auto};
+  if(meine.length===1)return{art:"grau",text:"Kennt uns: 1 Miete, zuletzt "+meine[0].auto};
   return d?{art:"grau",text:"Bekannt, noch kein Mietvertrag im System"}:null}
 function kundeCheck(){const i=kundeInfo($("name").value,$("nummer").value);$("kundeCheck").innerHTML=i?'<div class="warn '+i.art+'">'+i.text+'</div>':""}
 ["name","nummer"].forEach(id=>$(id).addEventListener("input",kundeCheck));
