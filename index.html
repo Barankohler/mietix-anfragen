@@ -353,7 +353,7 @@ function zeichnen(){
     const zeitraum = x.von ? deutsch(x.von)+(x.vonU?" "+x.vonU:"")+(x.bis?" bis "+deutsch(x.bis)+(x.bisU?" "+x.bisU:""):"") : "";
     return '<div class="eintrag '+x.status+'" data-id="'+x.id+'">'
       +'<div class="ekopf"><span class="ename">'+(x.name||"ohne Namen")+'</span>'
-      +'<span class="ezeit">'+x.uhr+(SICHT==="alle"?"  "+deutsch(x.tag):"")+'</span></div>'
+      +'<span class="ezeit">'+(x.uhr||"")+(SICHT==="alle"?"  "+deutsch(x.tag):"")+'</span></div>'
       +'<div class="edaten">'+[x.alter?x.alter+" Jahre":"", x.ort||"", x.nummer||""]
             .filter(Boolean).join("  |  ")+'</div>'
       +(x.auto||zeitraum ? '<div class="ewunsch">'+[x.auto,zeitraum].filter(Boolean).join("  |  ")+'</div>':'')
@@ -474,7 +474,7 @@ function tagesText(){
     +z.gebucht+" gebucht, "+z.abgesagt+" abgesagt\n\n";
   liste.forEach(x=>{
     const zr = x.von ? deutsch(x.von)+(x.bis?" bis "+deutsch(x.bis):"") : "";
-    t+="- "+x.uhr+"  "+(x.name||"ohne Namen")
+    t+="- "+(x.uhr?x.uhr+"  ":"")+(x.name||"ohne Namen")
       +(x.alter?", "+x.alter+" Jahre":"")+(x.ort?", "+x.ort:"")+"\n";
     if(x.nummer) t+="  "+x.nummer+"\n";
     if(x.auto||zr) t+="  "+[x.auto,zr].filter(Boolean).join(", ")+"\n";
@@ -777,7 +777,7 @@ function rueckZeigen(text){let el=document.getElementById("mietixRueck");
   const andere=()=>{try{return[...document.querySelectorAll("#meldung,#zMeld,#erfolgBox.auf,.bMeld,.meld.an,#meld.an")].some(m=>m.offsetParent!==null&&getComputedStyle(m).display!=="none"&&getComputedStyle(m).opacity!=="0")}catch(e){return false}};
   let n=0;const los=()=>{if(andere()&&n++<20){rueckTimer=setTimeout(los,200);return}el.classList.add("an");rueckTimer=setTimeout(()=>el.classList.remove("an"),6000)};los()}
 function rueckgaengig(){if(!burst)return;
-  if("mietixVorgaenge" in burst&&!confirm("Die letzte Änderung am Mietvertrag wird zurückgenommen (zum Beispiel das Speichern). Was im Formular steht, bleibt stehen. Weiter?"))return;
+  if("mietixVorgaenge" in burst&&!confirm("Die letzte Änderung am Mietvertrag wird zurückgenommen. Was gerade in einem offenen Formular steht, bleibt dort stehen. Weiter?"))return;
   const b=burst;burst=null;rueckLaeuft=true;
   try{Object.keys(b).forEach(k=>{if(b[k]===null)localStorage.removeItem(k);else roh.call(localStorage,k,b[k])})}finally{rueckLaeuft=false}
   const el=document.getElementById("mietixRueck");if(el){el.querySelector("span").textContent="Zurückgeholt.";clearTimeout(rueckTimer);rueckTimer=setTimeout(()=>el.classList.remove("an"),1500)}
