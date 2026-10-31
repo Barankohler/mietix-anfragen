@@ -34,7 +34,11 @@ input[type=date],input[type=time]{min-width:0;max-width:100%;-webkit-appearance:
 button{width:100%;padding:17px;font-weight:800;font-size:17px;font-family:inherit;border:0;border-radius:16px;
   background:var(--rot);color:#fff;margin-top:12px;min-height:56px}
 button.hell{background:#fff;color:var(--dunkel);border:1px solid var(--rand)}
-.tage{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.tage{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+/* Zeitraum-Filter unter der Übersicht (31.10.2026, Baran) */
+.zeitraumF{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:-6px 0 14px;background:#fff;border-radius:14px;padding:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 6px 16px rgba(0,0,0,.045)}
+.zeitraumF label{margin:0!important;display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--grau);min-width:0}
+.zeitraumF input{width:100%;min-width:0;font:inherit;font-size:15px;font-weight:700;color:#1C1C1E;border:1px solid #E5E5EA;border-radius:10px;padding:8px;background:#F7F7F9}
 .tag{background:#fff;border-radius:14px;padding:13px 4px;text-align:center;font-weight:800;
   font-size:15px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 6px 16px rgba(0,0,0,.045);cursor:pointer}
 .tag.an{background:var(--rot);color:#fff}
@@ -135,9 +139,14 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
 <div class="block">
   <p class="feldname">Übersicht</p>
   <div class="tage" id="tage">
-    <div class="tag an" data-w="heute">Heute</div>
+    <div class="tag an" data-w="alle">Alle</div>
+    <div class="tag" data-w="heute">Heute</div>
     <div class="tag" data-w="gestern">Gestern</div>
-    <div class="tag" data-w="alle">Alle</div>
+    <div class="tag" data-w="zeitraum">Zeitraum</div>
+  </div>
+  <div class="zeitraumF versteckt" id="zeitraumF">
+    <label>von<input type="date" id="fVon"></label>
+    <label>bis<input type="date" id="fBis"></label>
   </div>
   <div class="zahlen" id="zahlen"></div>
   <div id="liste"></div>
@@ -164,7 +173,7 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
 const $=id=>document.getElementById(id);
 let AUTOS=["Audi RS Q8"];
 let D=null;   // Preisdatei (gleiche Formel wie der Preisrechner)
-let SICHT="heute";
+let SICHT="alle";   // Standard: alle Anfragen (31.10.2026, Baran)
 const STATUS=[["offen","offen"],["angebot","Angebot"],["gebucht","gebucht"],["abgesagt","abgesagt"]];
 
 function lesen(){ try{ return JSON.parse(localStorage.getItem("mietixAnfragen")||"[]"); }catch(e){ return []; } }
@@ -330,6 +339,7 @@ function gefiltert(){
   const a=lesen();
   if(SICHT==="heute")  return a.filter(x=>x.tag===heuteISO()||(x.tag===gesternISO()&&x.status==="offen"));   // offene von gestern bleiben sichtbar (Liste Punkt 19)
   if(SICHT==="gestern")return a.filter(x=>x.tag===gesternISO());
+  if(SICHT==="zeitraum"){const v=$("fVon").value,b=$("fBis").value;return a.filter(x=>(!v||x.tag>=v)&&(!b||x.tag<=b))}
   return a;
 }
 
@@ -345,7 +355,7 @@ function zeichnen(){
 
   if(!liste.length){
     $("liste").innerHTML='<div class="leer">Noch keine Anfrage '
-      +(SICHT==="alle"?"erfasst.":"an diesem Tag.")+'</div>';
+      +(SICHT==="alle"?"erfasst.":SICHT==="zeitraum"?"in diesem Zeitraum.":"an diesem Tag.")+'</div>';
     return;
   }
   $("liste").innerHTML=liste.map(x=>{
@@ -353,7 +363,7 @@ function zeichnen(){
     const zeitraum = x.von ? deutsch(x.von)+(x.vonU?" "+x.vonU:"")+(x.bis?" bis "+deutsch(x.bis)+(x.bisU?" "+x.bisU:""):"") : "";
     return '<div class="eintrag '+x.status+'" data-id="'+x.id+'">'
       +'<div class="ekopf"><span class="ename">'+(x.name||"ohne Namen")+'</span>'
-      +'<span class="ezeit">'+(x.uhr||"")+(SICHT==="alle"?"  "+deutsch(x.tag):"")+'</span></div>'
+      +'<span class="ezeit">'+(x.uhr||"")+(SICHT==="alle"||SICHT==="zeitraum"?"  "+deutsch(x.tag):"")+'</span></div>'
       +'<div class="edaten">'+[x.alter?x.alter+" Jahre":"", x.ort||"", x.nummer||""]
             .filter(Boolean).join("  |  ")+'</div>'
       +(x.auto||zeitraum ? '<div class="ewunsch">'+[x.auto,zeitraum].filter(Boolean).join("  |  ")+'</div>':'')
@@ -381,7 +391,15 @@ function zeichnen(){
     const id=e.dataset.id;
     e.querySelectorAll(".minik[data-s]").forEach(k=>{
       k.onclick=()=>{ const a=lesen(); const t=a.find(x=>x.id===id);
-        if(t){ t.status=k.dataset.s; schreiben(a); zeichnen(); } };
+        if(!t||t.status===k.dataset.s)return;
+        // Gefährliche Wechsel nur mit Rückfrage (31.10.2026, Baran: gebucht auf abgesagt passiert schnell aus Versehen)
+        const neu=k.dataset.s, wer=(t.name||t.nummer||"ohne Namen"), was=(t.auto?t.auto+", ":"")+(t.von?deutsch(t.von)+(t.bis?" bis "+deutsch(t.bis):""):"");
+        if(t.status==="gebucht"&&!confirm(wer+" ist GEBUCHT"+(was?" ("+was+")":"")+".\n\nWirklich auf „"+(neu==="angebot"?"Angebot":neu)+"“ setzen? Das Auto ist dann im Kalender wieder frei"+(t.anzahlung&&t.anzahlung.am?", die Anzahlung bleibt eingetragen":"")+"."))return;
+        if(t.status!=="gebucht"&&neu==="abgesagt"&&!confirm("Anfrage von "+wer+" wirklich absagen?"))return;
+        if(neu==="gebucht"){const b=belegtDurch(t);
+          if(b.length&&!confirm("ACHTUNG, "+t.auto+" ist da schon vergeben:\n"+b.map(z=>z.name+" bis "+deutsch(z.bis)).join("\n")+"\n\nTrotzdem "+wer+" buchen? Dann ist das Auto doppelt verplant."))return;
+          if(!b.length&&!confirm(wer+" wirklich auf GEBUCHT setzen?"+(was?"\n\n"+was:"")+"\n\nDas Auto ist dann im Kalender belegt."))return}
+        t.status=neu; schreiben(a); zeichnen(); };
     });
     const ang=e.querySelector(".minik[data-angebot]");
     if(ang) ang.onclick=async()=>{const a=lesen();const x=a.find(y=>y.id===id);const r=preisFuer(x);if(!r)return;
@@ -400,9 +418,12 @@ function zeichnen(){
         else if(navigator.share){try{await navigator.share({text})}catch(err){}}else{try{await navigator.clipboard.writeText(text)}catch(err){}}
         if(x.status==="offen"){x.status="angebot";schreiben(a);zeichnen()}};
       form.querySelectorAll(".c[data-art]").forEach(c=>c.onclick=()=>{const b=zahlDE(inp.value);if(!b){alert("Bitte den Betrag eintragen.");return}
+        const bl=belegtDurch(x);
+        if(!confirm("Anzahlung "+Number(b).toLocaleString("de-DE",{maximumFractionDigits:2})+" € per "+c.textContent.trim()+" von "+(x.name||x.nummer||"ohne Namen")+" erhalten?\n\nDie Anfrage wird damit gebucht und "+(x.auto||"das Auto")+" im Kalender belegt."+(bl.length?"\n\nACHTUNG, schon vergeben an: "+bl.map(z=>z.name).join(", "):"")))return;
         x.anzahlung={betrag:b,quote:(x.anzahlung||{}).quote||0,art:c.dataset.art,am:heuteISO()};x.status="gebucht";ANZ_OFFEN=null;schreiben(a);zeichnen()})}
     const weg=e.querySelector(".minik[data-weg]");
-    if(weg) weg.onclick=()=>{ if(!confirm("Diese Anfrage löschen?"))return;
+    if(weg) weg.onclick=()=>{ const x=lesen().find(z=>z.id===id)||{};
+      if(!confirm("Anfrage von "+(x.name||x.nummer||"ohne Namen")+(x.auto?" ("+x.auto+(x.von?", "+deutsch(x.von):"")+")":"")+" löschen?\n\nSie liegt danach im Papierkorb."+(x.status==="gebucht"?" Das Auto wird im Kalender frei.":"")))return;
       schreiben(lesen().filter(x=>x.id!==id)); zeichnen(); };
   });
 }
@@ -442,8 +463,8 @@ $("speichern").onclick=()=>{
   schreiben(a);
   // Auto auch zurück auf "noch offen", sonst steht bei der nächsten Anfrage das alte Auto drin (30.10.2026)
   ["name","alter","ort","nummer","auto","von","bis","vonU","bisU","notiz"].forEach(k=>$(k).value="");$("vonU").value=$("bisU").value="10:00";zeitraumMarken();$("auto").dispatchEvent(new Event("change"));$("kundeCheck").innerHTML="";entwurfWeg();
-  SICHT="heute";
-  [...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="heute"));
+  SICHT="alle";$("zeitraumF").classList.add("versteckt");
+  [...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="alle"));
   zeichnen();
   $("speichern").textContent="Eingetragen";
   setTimeout(()=>{$("speichern").textContent="Anfrage eintragen";},1400);
@@ -460,12 +481,17 @@ $("name").addEventListener("input",()=>{const w=$("weiterAng");if(w)w.innerHTML=
 [...$("tage").querySelectorAll(".tag")].forEach(t=>{
   t.onclick=()=>{ SICHT=t.dataset.w;
     [...$("tage").querySelectorAll(".tag")].forEach(x=>x.classList.remove("an"));
-    t.classList.add("an"); zeichnen(); };
+    t.classList.add("an");
+    // Zeitraum: Anfang des Monats bis heute vorbelegt, frei änderbar
+    $("zeitraumF").classList.toggle("versteckt",SICHT!=="zeitraum");
+    if(SICHT==="zeitraum"&&!$("fVon").value){$("fVon").value=heuteISO().slice(0,8)+"01";$("fBis").value=heuteISO()}
+    zeichnen(); };
 });
+["fVon","fBis"].forEach(id=>$(id).addEventListener("change",zeichnen));
 
 function tagesText(){
   const liste=gefiltert().slice().reverse();
-  const titel = SICHT==="heute"?(lesen().some(x=>x.tag===gesternISO()&&x.status==="offen")?"Anfragen heute und offene von gestern":"Anfragen heute") : SICHT==="gestern"?"Anfragen gestern":"Alle Anfragen";
+  const titel = SICHT==="heute"?(lesen().some(x=>x.tag===gesternISO()&&x.status==="offen")?"Anfragen heute und offene von gestern":"Anfragen heute") : SICHT==="gestern"?"Anfragen gestern":SICHT==="zeitraum"?"Anfragen "+deutsch($("fVon").value)+" bis "+deutsch($("fBis").value):"Alle Anfragen";
   if(!liste.length) return "*"+titel+"*\n\nKeine Anfragen.";
   const z={offen:0,angebot:0,gebucht:0,abgesagt:0};
   liste.forEach(x=>{ z[x.status]=(z[x.status]||0)+1; });
