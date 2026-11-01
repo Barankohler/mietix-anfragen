@@ -211,6 +211,18 @@ html body header .mxStart,html body .topbar .mxStart,html body .kTop #kZu{min-he
   main,.app{max-width:680px!important;margin-left:auto!important;margin-right:auto!important}header .plus{right:max(16px,calc((100% - 680px)/2))!important}}
 #sortierung{font-size:16px!important}   /* sonst zoomt das iPhone beim Antippen */
 input[type=date],input[type=time]{min-width:0;max-width:100%}
+.nkBlock{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:#F7F7F9;border-radius:12px;padding:10px 12px;margin:8px 0}.nkBlock .nkLabel{flex:1 1 auto;font-weight:700;font-size:15px}.nkBlock .nkLabel i{display:block;font-style:normal;font-weight:500;font-size:13px;color:var(--grau)}.nkBlock .nkPaar{flex:0 0 auto;margin-top:0}</style><style>
+/* Knopf-Paar je Nachricht (02.11.2026) */
+.nkPaar{display:flex;justify-content:flex-end;gap:6px;margin-top:6px;flex:1 0 100%}
+.nkPaar button{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border:0;border-radius:999px;font-family:inherit;font-size:13px;font-weight:700;line-height:1;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;margin:0;width:auto;min-height:0;box-shadow:none}
+.nkPaar button svg{width:14px;height:14px;flex:0 0 auto}
+.nkPaar .nkWa{background:#E3F4EA!important;color:#1E8E4E!important}.nkPaar .nkKo{background:#FDECEC!important;color:#C4161C!important}
+.nkPaar button:active{opacity:.7}
+.nkPaar.gross{justify-content:stretch;gap:8px;margin-top:0}.nkPaar.gross button{flex:1;justify-content:center;height:46px;font-size:16px;border-radius:14px}
+.nkPaar.gross .nkWa{background:#25D366!important;color:#fff!important}.nkPaar.gross .nkKo{background:#FDECEC!important;color:#C4161C!important}
+.nkPaar.gross button svg{width:18px;height:18px}
+#nkMeld{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translateX(-50%) translateY(-10px);background:#1E8E4E;color:#fff;font:700 15px -apple-system,"SF Pro Text",system-ui,sans-serif;border-radius:999px;padding:9px 16px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:99999;white-space:nowrap}
+#nkMeld.an{opacity:1;transform:translateX(-50%) translateY(0)}
 </style><style>
 /* Preis-Block, überall gleich (01.11.2026) */
 .pbGk{font-size:13px;font-weight:600;color:#6E6E73;text-transform:uppercase;letter-spacing:.3px;margin:20px 16px 7px}
@@ -248,6 +260,26 @@ input[type=date],input[type=time]{min-width:0;max-width:100%}
     if(weicht)h+=' <a href="#" data-pb="1">Vorschlag übernehmen</a>';
     el.innerHTML=h;
     const a=el.querySelector("[data-pb]");if(a)a.onclick=e=>{e.preventDefault();if(uebernehmen)uebernehmen(mit)}};
+})();
+</script><script>
+/* Knopf-Paar je Nachricht: WhatsApp und Kopieren (02.11.2026) */
+(function(){if(window.nkPaar)return;
+  const SWA='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg>';
+  const SKO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h2"/></svg>';
+  window.nkPaar=function(art){return'<span class="nkPaar'+(art?" "+art:"")+'"><button type="button" class="nkWa" data-nk="wa">'+SWA+'WhatsApp</button><button type="button" class="nkKo" data-nk="ko">'+SKO+'Kopieren</button></span>'};
+  window.nkNummer=function(t){let n=String(t||"").replace(/\D/g,"");if(String(t||"").trim().startsWith("+"))return n;if(n.startsWith("00"))return n.slice(2);if(n.startsWith("0"))return"49"+n.slice(1);return n};
+  window.nkWa=function(tel,text){const n=nkNummer(tel);window.open("https://wa.me/"+(n&&n.length>=8?n:"")+"?text="+encodeURIComponent(text||""),"_blank")};
+  function meld(t){let m=document.getElementById("nkMeld");if(!m){m=document.createElement("div");m.id="nkMeld";m.setAttribute("role","status");document.body.appendChild(m)}
+    m.textContent=t;m.classList.add("an");clearTimeout(meld.z);meld.z=setTimeout(()=>m.classList.remove("an"),1800)}
+  window.nkMeldung=meld;
+  window.nkKopieren=async function(text){let ok=false;try{await navigator.clipboard.writeText(text);ok=true}catch(e){}
+    if(!ok){try{const a=document.createElement("textarea");a.value=text;a.setAttribute("readonly","");a.style.position="fixed";a.style.opacity="0";document.body.appendChild(a);a.select();ok=document.execCommand("copy");a.remove()}catch(e){}}
+    meld(ok?"✓ Kopiert":"Kopieren ging nicht, bitte Text lange antippen");return ok};
+  // beide Knöpfe in el verbinden; textFn liefert den Text erst beim Tippen, nachher(art) z. B. zum Merken „gesendet“
+  window.nkVerbinden=function(el,tel,textFn,nachher){if(!el)return;const w=el.querySelector('[data-nk="wa"]'),k=el.querySelector('[data-nk="ko"]');
+    const tx=()=>typeof textFn==="function"?textFn():String(textFn||""),tl=()=>typeof tel==="function"?tel():tel;
+    if(w)w.onclick=e=>{e.preventDefault();e.stopPropagation();nkWa(tl(),tx());if(nachher)nachher("wa")};
+    if(k)k.onclick=async e=>{e.preventDefault();e.stopPropagation();const ok=await nkKopieren(tx());if(ok&&nachher)nachher("ko")}};
 })();
 </script>
 <header><h1>MIETIX <span>ANFRAGEN</span></h1>
@@ -431,7 +463,7 @@ function anzahlungForm(x){
   const quote=(x.anzahlung&&x.anzahlung.quote)||30,betrag=x.anzahlung&&x.anzahlung.betrag?x.anzahlung.betrag:Math.round(r.total*quote/100);
   return'<div class="anzform" data-anzform="1"><label>Anzahlung</label><div class="chips">'+QUOTEN.map(q=>'<div class="c'+(q===quote?" an":"")+'" data-q="'+q+'">'+q+' %</div>').join("")+'</div>'+
     '<label>Betrag €</label><input class="anzb" inputmode="decimal" value="'+betrag.toLocaleString("de-DE",{minimumFractionDigits:2})+'">'+
-    '<div class="minik wa" data-zahlungsdaten="1">Zahlungsdaten per WhatsApp (Mietpreis, Anzahlung, Rest)</div>'+
+    '<div class="nkBlock" data-zahlungsdaten="1"><span class="nkLabel">Zahlungsdaten an den Kunden<i>Mietpreis, Anzahlung, Rest</i></span>'+nkPaar()+'</div>'+
     '<label>Anzahlung erhalten per</label><div class="chips">'+ZAHLART.map(([v,t])=>'<div class="c" data-art="'+v+'">'+t+'</div>').join("")+'</div>'+
     '<div class="hinweisklein" style="font-size:12px;color:var(--grau);margin-top:6px">Zahlart antippen = heute erhalten. Die Anfrage wird „gebucht“, und die Anzahlung steht beim Mietvertrag machen schon drin.</div></div>'}
 const zahlDE=v=>{const s=String(v||"").trim();if(!s)return null;const n=parseFloat(s.indexOf(",")>=0||/^\d{1,3}(\.\d{3})+$/.test(s)?s.replace(/\./g,"").replace(",","."):s);return isNaN(n)?null:n};   // 1.000 = 1000 (1.11.2026)
@@ -514,7 +546,7 @@ function nachfassen(x,wa){if(x.status!=="angebot"||!wa)return"";
   if(x.nachgefasst)return'<div class="ebez">Nachgefragt am '+deutsch(x.nachgefasst)+'</div>';
   const seit=Math.round((new Date(heuteISO())-new Date(String((x.angebot&&x.angebot.am)||x.tag).slice(0,10)))/864e5);if(seit<2)return"";
   const vn=String(x.name||"").trim().split(/\s+/)[0],t="Hallo"+(vn?" "+vn:"")+",\n\nich wollte kurz nachfragen, ob unser Angebot"+(x.auto?" für den "+x.auto:"")+(x.von?" vom "+deutsch(x.von)+(x.bis?" bis "+deutsch(x.bis):""):"")+" noch passt. Gerne halte ich Ihnen das Fahrzeug frei.\n\nViele Grüße\nIhr Mietix-Team";
-  return'<a class="minik wa" style="display:block;margin-top:8px" data-nf="'+x.id+'" href="https://wa.me/'+wa+'?text='+encodeURIComponent(t)+'" target="_blank">Nachfragen: seit '+seit+' Tagen keine Antwort</a>'}
+  return'<div class="nkBlock" data-nf="'+x.id+'" data-nftel="'+String(wa).replace(/\D/g,"")+'" data-nftext="'+encodeURIComponent(t)+'"><span class="nkLabel">Nachfragen<i>seit '+seit+' Tagen keine Antwort</i></span>'+nkPaar()+'</div>'}
 function gefiltert(){
   const a=lesen();
   if(SICHT==="heute")  return a.filter(x=>x.tag===heuteISO()||(x.tag===gesternISO()&&x.status==="offen"));   // offene von gestern bleiben sichtbar (Liste Punkt 19)
@@ -567,7 +599,7 @@ function zeichnen(){
       +'</div>'
       +'</div>';
   }).join("");
-  $("liste").querySelectorAll("[data-nf]").forEach(k=>k.addEventListener("click",()=>{const a=lesen(),y=a.find(z=>z.id===k.dataset.nf);if(y){y.nachgefasst=heuteISO();schreiben(a);setTimeout(zeichnen,800)}}));
+  $("liste").querySelectorAll("[data-nf]").forEach(k=>nkVerbinden(k,k.dataset.nftel,decodeURIComponent(k.dataset.nftext),()=>{const a=lesen(),y=a.find(z=>z.id===k.dataset.nf);if(y){y.nachgefasst=heuteISO();schreiben(a);setTimeout(zeichnen,800)}}));
 
   [...$("liste").querySelectorAll(".eintrag")].forEach(e=>{
     const id=e.dataset.id;
@@ -595,10 +627,8 @@ function zeichnen(){
     if(form){const a=lesen(),x=a.find(y=>y.id===id),r=preisFuer(x),inp=form.querySelector(".anzb");
       form.querySelectorAll(".c[data-q]").forEach(c=>c.onclick=()=>{x.anzahlung=Object.assign({},x.anzahlung||{},{quote:+c.dataset.q,betrag:Math.round(r.total*(+c.dataset.q)/100)});schreiben(a);zeichnen()});
       inp.addEventListener("change",()=>{const b=zahlDE(inp.value);if(b){x.anzahlung=Object.assign({},x.anzahlung||{},{betrag:b,quote:0});schreiben(a)}});
-      form.querySelector("[data-zahlungsdaten]").onclick=async()=>{const b=zahlDE(inp.value)||0,text=reservierungsText(x,r,b),nr=nummerWa(x.nummer);
-        if(nr)window.open("https://wa.me/"+nr+"?text="+encodeURIComponent(text),"_blank");
-        else if(navigator.share){try{await navigator.share({text})}catch(err){}}else{try{await navigator.clipboard.writeText(text)}catch(err){}}
-        if(x.status==="offen"){x.status="angebot";schreiben(a);zeichnen()}};
+      // Knopf-Paar WhatsApp und Kopieren (02.11.2026, Baran)
+      nkVerbinden(form.querySelector("[data-zahlungsdaten]"),x.nummer,()=>reservierungsText(x,r,zahlDE(inp.value)||0),()=>{if(x.status==="offen"){x.status="angebot";schreiben(a);zeichnen()}});
       form.querySelectorAll(".c[data-art]").forEach(c=>c.onclick=()=>{const b=zahlDE(inp.value);if(!b){alert("Bitte den Betrag eintragen.");return}
         const bl=belegtDurch(x);
         if(!confirm("Anzahlung "+Number(b).toLocaleString("de-DE",{maximumFractionDigits:2})+" € per "+c.textContent.trim()+" von "+(x.name||x.nummer||"ohne Namen")+" erhalten?\n\nDie Anfrage wird damit gebucht und "+(x.auto||"das Auto")+" im Kalender belegt."+(bl.length?"\n\nACHTUNG, schon vergeben an: "+bl.map(z=>z.name).join(", "):"")))return;
