@@ -630,16 +630,20 @@ $("aRab").addEventListener("input",()=>{A_PREIS_HAND=false;aPreisRechnen()});   
 /* Entwurf (Sicherheitsnetz 28.10.2026): die Felder werden beim Tippen gemerkt und nach einem Neuladen wieder eingesetzt */
 const ENTWURF_FELDER=["name","alter","ort","nummer","auto","von","bis","vonU","bisU","notiz"];
 let entwurfTimer=null;
-function entwurfMerken(){clearTimeout(entwurfTimer);entwurfTimer=setTimeout(()=>{const e={zeit:new Date().toISOString()};ENTWURF_FELDER.forEach(k=>e[k]=$(k).value);
+// Angefangene Anfrage: die Zeile oben heißt dann „Anfrage fortsetzen“ (01.11.2026, Baran: Angefangenes klar benennen)
+function neuZeileStand(){const z=$("neuZeile");if(!z)return;const n=$("name").value.trim(),nr=$("nummer").value.trim(),an=!!(n||nr);
+  z.querySelector("span b").textContent=an?"Anfrage fortsetzen":"Neue Anfrage";
+  z.querySelector("span i").textContent=an?"Angefangen: "+[n||nr,$("auto").value].filter(Boolean).join(", ")+", noch nicht eingetragen":"Name, WhatsApp, Auto und Zeitraum"}
+function entwurfMerken(){neuZeileStand();clearTimeout(entwurfTimer);entwurfTimer=setTimeout(()=>{const e={zeit:new Date().toISOString()};ENTWURF_FELDER.forEach(k=>e[k]=$(k).value);
   e.aRab=$("aRab").value;e.aPreis=A_PREIS_HAND?$("aPreis").value:"";e.aKm=A_KM_HAND?$("aKm").value:"";
   if(!(e.name||"").trim()&&!(e.nummer||"").trim()){try{localStorage.removeItem("mietixEntwurfAnfrage")}catch(x){}return}
   try{localStorage.setItem("mietixEntwurfAnfrage",JSON.stringify(e))}catch(x){}},300)}
-function entwurfWeg(){try{localStorage.removeItem("mietixEntwurfAnfrage")}catch(x){}$("entwurfHinweis").classList.add("versteckt")}
+function entwurfWeg(){try{localStorage.removeItem("mietixEntwurfAnfrage")}catch(x){}$("entwurfHinweis").classList.add("versteckt");setTimeout(neuZeileStand,0)}
 ENTWURF_FELDER.concat(["aPreis","aKm","aRab"]).forEach(k=>["input","change"].forEach(ev=>$(k).addEventListener(ev,entwurfMerken)));
 (function(){let e=null;try{e=JSON.parse(localStorage.getItem("mietixEntwurfAnfrage")||"null")}catch(x){}
   if(!e||Date.now()-new Date(e.zeit).getTime()>48*3600e3)return;
   ENTWURF_FELDER.forEach(k=>{if(e[k]!==undefined&&e[k]!=="")$(k).value=e[k]});$("entwurfHinweis").classList.remove("versteckt");kundeCheck();
-  if(e.aRab)$("aRab").value=e.aRab;if(e.aPreis){$("aPreis").value=e.aPreis;A_PREIS_HAND=true}if(e.aKm){$("aKm").value=e.aKm;A_KM_HAND=true}aPreisRechnen();
+  neuZeileStand();if(e.aRab)$("aRab").value=e.aRab;if(e.aPreis){$("aPreis").value=e.aPreis;A_PREIS_HAND=true}if(e.aKm){$("aKm").value=e.aKm;A_KM_HAND=true}aPreisRechnen();
   formularAuf()})();   // angefangene Anfrage: Fenster gleich offen
 // Leeren nur mit Rückfrage, danach 15 Sekunden „Wiederherstellen“ (31.10.2026, Baran: jedes Löschen nachfragen)
 $("entwurfLeeren").onclick=ev=>{ev.preventDefault();if(!confirm("Angefangene Anfrage wirklich leeren?"))return;
