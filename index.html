@@ -211,7 +211,45 @@ html body header .mxStart,html body .topbar .mxStart,html body .kTop #kZu{min-he
   main,.app{max-width:680px!important;margin-left:auto!important;margin-right:auto!important}header .plus{right:max(16px,calc((100% - 680px)/2))!important}}
 #sortierung{font-size:16px!important}   /* sonst zoomt das iPhone beim Antippen */
 input[type=date],input[type=time]{min-width:0;max-width:100%}
-</style></head><body>
+</style><style>
+/* Preis-Block, überall gleich (01.11.2026) */
+.pbGk{font-size:13px;font-weight:600;color:#6E6E73;text-transform:uppercase;letter-spacing:.3px;margin:20px 16px 7px}
+.pbGr{background:#fff;border-radius:12px;overflow:hidden}
+.pbF{display:flex;align-items:center;gap:12px;padding:7px 16px;min-height:50px;position:relative;box-sizing:border-box}
+.pbF+.pbF:before{content:"";position:absolute;left:16px;right:0;top:0;border-top:.5px solid #D1D1D6}
+.pbF label{flex:0 0 116px;width:116px;margin:0!important;font-size:17px!important;font-weight:400!important;color:#1C1C1E!important;white-space:nowrap;text-transform:none!important;letter-spacing:0!important}
+.pbF input{flex:1;min-width:0;width:auto!important;min-height:40px!important;margin:0!important;padding-top:8px!important;padding-bottom:8px!important;padding-left:11px!important;font-size:17px!important;font-weight:400!important;border-radius:9px!important}
+.pbF input{border:0!important;background-color:#F2F2F7!important;box-shadow:none!important;outline:none}
+.pbF input:focus{box-shadow:0 0 0 2px rgba(196,22,28,.35)!important}
+.pbF input:disabled{opacity:.55}
+.pbF.versteckt{display:none}
+.pbTipp{padding:4px 16px 12px;font-size:13px;color:#6E6E73;line-height:1.4;font-weight:400}
+.pbTipp:empty{display:none}
+.pbTipp b{color:#1C1C1E;font-weight:700;display:inline!important;margin:0!important;font-size:inherit!important}
+.pbTipp a{color:#C4161C;font-weight:700;text-decoration:none;white-space:nowrap;cursor:pointer}
+.pbFrei{font-size:13px;color:#6E6E73;margin:7px 16px 0;line-height:1.4}
+.pfl{color:#FF3B30}
+/* in einer weißen Karte (Mietvertrag, Angebot, Anfrage): ohne eigenen Kasten, bündig */
+.karte .pbGr,.k .pbGr{background:transparent;border-radius:0;margin-top:2px}
+.karte .pbF,.k .pbF{padding-left:0;padding-right:0}
+.karte .pbF+.pbF:before,.k .pbF+.pbF:before{left:0}
+.karte .pbTipp,.k .pbTipp{padding-left:0;padding-right:0}
+.karte .pbFrei,.k .pbFrei{margin-left:0;margin-right:0}
+@media(max-width:380px){.pbF label{flex-basis:96px;width:96px}}
+</style></head><body><script>
+/* Preis-Block: ein Hinweis-Text für alle Seiten (01.11.2026) */
+(function(){if(window.pbTipp)return;
+  const E=n=>Math.round(n).toLocaleString("de-DE")+" €";
+  window.pbTipp=function(el,vorschlag,rab,preis,hand,uebernehmen){if(!el)return;
+    if(vorschlag==null||!(vorschlag>0)){el.innerHTML="";return}
+    rab=Math.max(0,+rab||0);const mit=Math.round(vorschlag*(1-rab/100));
+    let h="Vorschlag aus dem Preisrechner: <b>"+E(vorschlag)+"</b>"+(rab?", mit "+String(rab).replace(".",",")+" % Rabatt <b>"+E(mit)+"</b>":"")+". Was du selbst tippst, bleibt stehen.";
+    const weicht=hand&&preis>0&&Math.round(preis)!==mit;
+    if(weicht)h+=' <a href="#" data-pb="1">Vorschlag übernehmen</a>';
+    el.innerHTML=h;
+    const a=el.querySelector("[data-pb]");if(a)a.onclick=e=>{e.preventDefault();if(uebernehmen)uebernehmen(mit)}};
+})();
+</script>
 <header><h1>MIETIX <span>ANFRAGEN</span></h1>
   <button class="plus" type="button" id="neuPlus" data-fenster="fNeu" aria-label="Neue Anfrage">+</button></header>
 <main>
@@ -275,6 +313,14 @@ input[type=date],input[type=time]{min-width:0;max-width:100%}
       <div><label>Von</label><input id="von" type="date"><input id="vonU" type="time" value="10:00" class="uhrF"></div>
       <div><label>Bis</label><input id="bis" type="date"><input id="bisU" type="time" value="10:00" class="uhrF"></div>
     </div>
+    <!-- Preis-Block wie überall (01.11.2026, Baran zu einheit_2): freiwillig, wandert mit ins Angebot und in die Buchung -->
+    <label>Preis, Kilometer, Rabatt</label>
+    <div class="pbGr">
+      <div class="pbF"><label for="aPreis">Preis</label><input id="aPreis" inputmode="numeric" autocomplete="off" data-einheit="€"></div>
+      <div class="pbF"><label for="aKm">Inklusive</label><input id="aKm" inputmode="numeric" autocomplete="off" data-einheit="km"></div>
+      <div class="pbF"><label for="aRab">Rabatt</label><input id="aRab" inputmode="numeric" autocomplete="off" placeholder="0" data-einheit="%"></div>
+      <div class="pbTipp" id="aTipp"></div></div>
+    <div class="pbFrei">Preis ist hier freiwillig, er wandert mit ins Angebot und in die Buchung.</div>
     <label class="nurvoll">Notiz</label>
     <textarea class="nurvoll" id="notiz"></textarea>
     <button id="speichern">Anfrage eintragen</button>
@@ -564,22 +610,41 @@ function zeichnen(){
   });
 }
 
+/* Preis-Block (01.11.2026): Vorschlag aus dem Preisrechner, von Hand Getipptes bleibt stehen */
+let A_PREIS_HAND=false,A_KM_HAND=false;
+const aRabW=()=>Math.min(90,Math.max(0,+String($("aRab").value||"").replace(",",".")||0));
+function aPreisRechnen(){const r=D?preisFuer({auto:$("auto").value,von:$("von").value,bis:$("bis").value}):null,rab=aRabW();
+  if(!A_PREIS_HAND)$("aPreis").value=r?String(Math.round(r.total*(1-rab/100))):"";
+  if(!A_KM_HAND)$("aKm").value=r?String((D.freiKm||150)*r.dauer):"";
+  pbTipp($("aTipp"),r?r.total:null,rab,+$("aPreis").value||0,A_PREIS_HAND,()=>{A_PREIS_HAND=false;aPreisRechnen();entwurfMerken()})}
+function aPreisLeeren(){A_PREIS_HAND=A_KM_HAND=false;$("aRab").value="";aPreisRechnen()}
+// nur abgemacht, wenn etwas von Hand kam (Preis, km oder Rabatt), sonst rechnet die Liste wie bisher
+function aAngebot(x){if(!x.auto||!x.von||!x.bis||!(A_PREIS_HAND||A_KM_HAND||aRabW()))return null;const pr=Math.round(+$("aPreis").value||0),km=Math.round(+$("aKm").value||0);if(!pr)return null;
+  return{auto:x.auto,von:x.von,bis:x.bis,vonU:x.vonU,bisU:x.bisU,preis:pr,miete:pr,rabatt:aRabW(),kmInkl:km,freikm:km,kmExtra:0,paketKm:0,paketPreis:0,am:new Date().toISOString()}}
+$("aPreis").addEventListener("input",()=>{A_PREIS_HAND=$("aPreis").value.trim()!=="";if(A_PREIS_HAND)aPreisRechnen()});
+$("aKm").addEventListener("input",()=>{A_KM_HAND=$("aKm").value.trim()!==""});
+["aPreis","aKm"].forEach(i=>$(i).addEventListener("change",aPreisRechnen));
+$("aRab").addEventListener("input",()=>{A_PREIS_HAND=false;aPreisRechnen()});   // neuer Rabatt rechnet den Preis neu, wie überall
+["auto","von","bis"].forEach(i=>["input","change"].forEach(ev=>$(i).addEventListener(ev,aPreisRechnen)));
+
 /* Entwurf (Sicherheitsnetz 28.10.2026): die Felder werden beim Tippen gemerkt und nach einem Neuladen wieder eingesetzt */
 const ENTWURF_FELDER=["name","alter","ort","nummer","auto","von","bis","vonU","bisU","notiz"];
 let entwurfTimer=null;
 function entwurfMerken(){clearTimeout(entwurfTimer);entwurfTimer=setTimeout(()=>{const e={zeit:new Date().toISOString()};ENTWURF_FELDER.forEach(k=>e[k]=$(k).value);
+  e.aRab=$("aRab").value;e.aPreis=A_PREIS_HAND?$("aPreis").value:"";e.aKm=A_KM_HAND?$("aKm").value:"";
   if(!(e.name||"").trim()&&!(e.nummer||"").trim()){try{localStorage.removeItem("mietixEntwurfAnfrage")}catch(x){}return}
   try{localStorage.setItem("mietixEntwurfAnfrage",JSON.stringify(e))}catch(x){}},300)}
 function entwurfWeg(){try{localStorage.removeItem("mietixEntwurfAnfrage")}catch(x){}$("entwurfHinweis").classList.add("versteckt")}
-ENTWURF_FELDER.forEach(k=>["input","change"].forEach(ev=>$(k).addEventListener(ev,entwurfMerken)));
+ENTWURF_FELDER.concat(["aPreis","aKm","aRab"]).forEach(k=>["input","change"].forEach(ev=>$(k).addEventListener(ev,entwurfMerken)));
 (function(){let e=null;try{e=JSON.parse(localStorage.getItem("mietixEntwurfAnfrage")||"null")}catch(x){}
   if(!e||Date.now()-new Date(e.zeit).getTime()>48*3600e3)return;
   ENTWURF_FELDER.forEach(k=>{if(e[k]!==undefined&&e[k]!=="")$(k).value=e[k]});$("entwurfHinweis").classList.remove("versteckt");kundeCheck();
+  if(e.aRab)$("aRab").value=e.aRab;if(e.aPreis){$("aPreis").value=e.aPreis;A_PREIS_HAND=true}if(e.aKm){$("aKm").value=e.aKm;A_KM_HAND=true}aPreisRechnen();
   formularAuf()})();   // angefangene Anfrage: Fenster gleich offen
 // Leeren nur mit Rückfrage, danach 15 Sekunden „Wiederherstellen“ (31.10.2026, Baran: jedes Löschen nachfragen)
 $("entwurfLeeren").onclick=ev=>{ev.preventDefault();if(!confirm("Angefangene Anfrage wirklich leeren?"))return;
   const alt={};ENTWURF_FELDER.forEach(k=>{alt[k]=$(k).value});
-  ENTWURF_FELDER.filter(k=>k!=="auto").forEach(k=>$(k).value="");$("kundeCheck").innerHTML="";entwurfWeg();
+  ENTWURF_FELDER.filter(k=>k!=="auto").forEach(k=>$(k).value="");$("kundeCheck").innerHTML="";entwurfWeg();aPreisLeeren();
   const h=$("entwurfHinweis"),vorher=h.innerHTML;h.classList.remove("versteckt");h.innerHTML='Felder geleert. <a href="#" id="entwurfZurueck" style="color:#C4161C">Wiederherstellen</a>';
   const t=setTimeout(()=>{h.classList.add("versteckt");h.innerHTML=vorher;$("entwurfLeeren").onclick=LEEREN},15000);
   $("entwurfZurueck").onclick=e=>{e.preventDefault();clearTimeout(t);ENTWURF_FELDER.forEach(k=>{$(k).value=alt[k]});$(ENTWURF_FELDER[0]).dispatchEvent(new Event("input",{bubbles:true}));
@@ -607,9 +672,10 @@ $("speichern").onclick=()=>{
     name:name, alter:$("alter").value.trim(), ort:$("ort").value.trim(), nummer:nummer,
     auto:$("auto").value, von:$("von").value, bis:$("bis").value, vonU:$("vonU").value, bisU:$("bisU").value,
     notiz:$("notiz").value.trim(), status:"offen" });
+  {const n=a[a.length-1],ang=aAngebot(n);if(ang)n.angebot=ang}   // Preis aus dem Preis-Block wandert mit (01.11.2026)
   if(!schreiben(a))return;   // nicht gespeichert: Formular bleibt stehen, roter Hinweis aus stil/schutz.py
   // Auto auch zurück auf "noch offen", sonst steht bei der nächsten Anfrage das alte Auto drin (30.10.2026)
-  ["name","alter","ort","nummer","auto","von","bis","vonU","bisU","notiz"].forEach(k=>$(k).value="");$("vonU").value=$("bisU").value="10:00";zeitraumMarken();$("auto").dispatchEvent(new Event("change"));$("kundeCheck").innerHTML="";entwurfWeg();
+  ["name","alter","ort","nummer","auto","von","bis","vonU","bisU","notiz"].forEach(k=>$(k).value="");$("vonU").value=$("bisU").value="10:00";zeitraumMarken();aPreisLeeren();$("auto").dispatchEvent(new Event("change"));$("kundeCheck").innerHTML="";entwurfWeg();
   SICHT="alle";$("zeitraumF").classList.add("versteckt");
   [...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="alle"));
   zeichnen();
@@ -693,7 +759,7 @@ autosFuellen(); zeichnen();
 try{
   fetch("https://barankohler.github.io/mietix-preise/preise.json",{cache:"no-store"})
     .then(r=>r.ok?r.json():null)
-    .then(p=>{ if(p&&p.cars&&p.cars.length){ D=p; AUTOS=p.cars.map(c=>c.anzeige||c.n); autosFuellen(); zeichnen(); } })
+    .then(p=>{ if(p&&p.cars&&p.cars.length){ D=p; AUTOS=p.cars.map(c=>c.anzeige||c.n); autosFuellen(); zeichnen(); aPreisRechnen(); } })
     .catch(()=>{});
 }catch(e){}
 window.addEventListener("mietix-abgleich",()=>zeichnen());   // neuer Stand von einem anderen Gerät
