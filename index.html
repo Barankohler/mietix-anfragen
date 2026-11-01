@@ -510,6 +510,8 @@ function zeichnen(){
       // Gebucht: ein Klick öffnet den Mietvertrag schon ausgefüllt (gleicher Speicher auf barankohler.github.io)
       +(x.status!=="abgesagt"&&x.status!=="gebucht"&&preisFuer(x)&&!belegtDurch(x).length?'<a class="minik angebot" href="https://barankohler.github.io/mietix-belegung/?zeige=angebot&anfrage='+encodeURIComponent(x.id)+'">'+(x.angebot?'Angebot ändern oder nochmal schicken':'Angebot schicken (Kilometer, Rabatt)')+'</a>':'')
       +(x.status==="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?anfrage='+x.id+'">Mietvertrag anlegen</a>':'')
+      // Buchen (1.11.2026, Baran: „überall gleich“): dasselbe Formular „Neue Buchung“ wie überall, Name, Auto, Zeitraum und Preis schon drin
+      +(x.status!=="abgesagt"&&x.status!=="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?neu=1&anfrage='+encodeURIComponent(x.id)+'">Buchen ›</a>':'')
       +(x.anzahlung&&x.anzahlung.am?'<div class="ebez">Anzahlung '+EUR.format(x.anzahlung.betrag)+' erhalten am '+deutsch(x.anzahlung.am)+' ('+(ZAHLART.find(z=>z[0]===x.anzahlung.art)||["","?"])[1]+')</div>':'')
       +(x.status!=="abgesagt"&&!(x.anzahlung&&x.anzahlung.am)&&preisFuer(x)&&!belegtDurch(x).length?(ANZ_OFFEN===x.id?anzahlungForm(x):'<div class="minik anzk" data-anz="1">Anzahlung …</div>'):'')
       +nachfassen(x,wa)
