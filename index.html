@@ -22,6 +22,9 @@ main{max-width:640px;margin:0 auto;padding:18px 18px 0}
 .karte{background:#fff;border-radius:20px;padding:17px;
   box-shadow:0 1px 2px rgba(0,0,0,.05),0 6px 16px rgba(0,0,0,.045)}
 label{display:block;font-size:12px;font-weight:700;color:var(--grau);margin:12px 0 5px}
+/* Pflichtfelder Name und WhatsApp (1.11.2026, Baran): roter Hinweis direkt am Feld, Knopf grau bis beides da ist */
+input.fehlt{border-color:var(--rot)!important;background:#FFF6F6}.fHinweis{color:var(--rot);font-size:13px;font-weight:800;margin:5px 2px 0}
+#speichern.aus{background:#BDBDC2!important;color:#fff}
 label:first-child{margin-top:0}
 input,select,textarea{width:100%;background:#fff;border:1px solid var(--rand);border-radius:16px;
   padding:14px 14px;font-weight:700;font-size:17px;font-family:inherit;color:var(--dunkel);min-height:54px}
@@ -110,8 +113,8 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
     <div class="anruf versteckt" style="margin-top:0"><div id="einfuegen" style="background:#25D366;color:#fff;border-color:#25D366">WhatsApp-Nachricht einfügen</div></div>
     <textarea id="einfuegeText" class="versteckt" placeholder="Nachricht hier einfügen. Nummer, Datum und Auto werden erkannt." style="margin-bottom:8px;font-size:16px;min-height:80px"></textarea>
     <div class="zwei">
-      <div><label>Name</label><input id="name" type="text" autocomplete="off" placeholder="Max Muster"></div>
-      <div><label>WhatsApp</label><input id="nummer" type="tel" inputmode="tel" placeholder="0176 1234567"></div>
+      <div><label>Name *</label><input id="name" type="text" autocomplete="off" placeholder="Max Muster"><div class="fHinweis versteckt" id="nameFehlt">Name fehlt</div></div>
+      <div><label>WhatsApp *</label><input id="nummer" type="tel" inputmode="tel" placeholder="0176 1234567"><div class="fHinweis versteckt" id="nummerFehlt">Nummer fehlt</div></div>
     </div>
     <div id="kundeCheck"></div>
     <div id="entwurfHinweis" class="versteckt" style="margin-top:8px;font-size:13px;color:#6F6F72;font-weight:600">Angefangene Anfrage wiederhergestellt. <a href="#" id="entwurfLeeren" style="color:#C4161C">Felder leeren</a></div>
@@ -453,10 +456,20 @@ $("entwurfLeeren").onclick=ev=>{ev.preventDefault();if(!confirm("Angefangene Anf
   $("entwurfZurueck").onclick=e=>{e.preventDefault();clearTimeout(t);ENTWURF_FELDER.forEach(k=>{$(k).value=alt[k]});$(ENTWURF_FELDER[0]).dispatchEvent(new Event("input",{bubbles:true}));
     h.innerHTML=vorher;h.classList.add("versteckt");$("entwurfLeeren").onclick=LEEREN}};
 const LEEREN=$("entwurfLeeren").onclick;
+// Pflicht: Name und WhatsApp-Nummer. Auto, Zeitraum und alles andere dürfen fehlen (1.11.2026, Baran: Anfragen müssen schnell gehen)
+function pflichtFehlt(){const f=[];if(!$("name").value.trim())f.push(["name","Name","Name fehlt"]);
+  const z=$("nummer").value.replace(/\D/g,"");if(!z)f.push(["nummer","WhatsApp","Nummer fehlt"]);else if(z.length<6)f.push(["nummer","WhatsApp","Nummer unvollständig"]);return f}
+let PFLICHT_ZEIGEN=false;
+function pflichtStand(){const f=pflichtFehlt(),b=$("speichern");
+  ["name","nummer"].forEach(id=>{const x=f.find(e=>e[0]===id),zeig=PFLICHT_ZEIGEN&&!!x;$(id).classList.toggle("fehlt",zeig);$(id+"Fehlt").classList.toggle("versteckt",!zeig);if(x)$(id+"Fehlt").textContent=x[2]});
+  if(b.textContent!=="Eingetragen"){b.classList.toggle("aus",!!f.length);b.textContent=f.length?"Noch fehlt: "+f.map(x=>x[1]).join(", "):"Anfrage eintragen"}
+  if(!f.length)PFLICHT_ZEIGEN=false}
+["name","nummer"].forEach(id=>{$(id).addEventListener("input",pflichtStand);$(id).addEventListener("change",pflichtStand);$(id).addEventListener("blur",pflichtStand)});
+document.addEventListener("paste",()=>setTimeout(pflichtStand,50));setTimeout(pflichtStand,300);setTimeout(pflichtStand,1500);
 $("speichern").onclick=()=>{
   const name=$("name").value.trim();
   const nummer=$("nummer").value.trim();
-  if(!name && !nummer){ alert("Bitte wenigstens Name oder Nummer eintragen."); return; }
+  const fehlt=pflichtFehlt();if(fehlt.length){PFLICHT_ZEIGEN=true;pflichtStand();$(fehlt[0][0]).focus();return}
   const jetzt=new Date();
   const a=lesen();
   const NEUE_ID=String(Date.now())+Math.random().toString(36).slice(2,6),MIT_ZEIT=!!($("von").value&&$("bis").value);
@@ -472,7 +485,7 @@ $("speichern").onclick=()=>{
   [...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="alle"));
   zeichnen();
   $("speichern").textContent="Eingetragen";
-  setTimeout(()=>{$("speichern").textContent="Anfrage eintragen";},1400);
+  setTimeout(()=>{$("speichern").textContent="Anfrage eintragen";pflichtStand()},1400);
   // Nach dem Eintragen gleich weiter (31.10.2026): Angebot schicken mit einem Tipp, sonst einfach weitermachen
   let w=$("weiterAng");if(!w){w=document.createElement("div");w.id="weiterAng";$("speichern").after(w)}
   if(MIT_ZEIT){w.innerHTML='<div style="margin-top:10px;background:#E6F6EC;border-radius:14px;padding:12px 14px"><b style="display:block;color:#1E9E5A;font-size:15px">✓ Eingetragen. Gleich ein Angebot schicken?</b>'+
