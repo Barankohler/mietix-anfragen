@@ -203,7 +203,7 @@ const wtIndex=d=>(d.getDay()+6)%7;
 const kurz=d=>String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+".";
 const lang=d=>kurz(d)+d.getFullYear();
 const wtKurz=d=>["Mo","Di","Mi","Do","Fr","Sa","So"][wtIndex(d)];
-const EUR=new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"});
+const EUR=new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR",minimumFractionDigits:0,maximumFractionDigits:0});   // ganze Euro (1.11.2026, Baran: keine Cent)
 const EUR0=new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR",maximumFractionDigits:0});
 function scaler(s,d){const W=D.faktor.reduce((a,b)=>a+b,0);let sum=Math.floor(d/7)*W;for(let k=0;k<d%7;k++)sum+=D.faktor[(s+k)%7];return sum}
 function wochenmiete(a,start,dauer){if(dauer===1&&start>=4)return a.frSa||a.gp*D.faktor[start];return a.gp*scaler(start,dauer)}
@@ -211,9 +211,9 @@ function preisFuer(x){
   if(!D||!x.auto||!x.von||!x.bis)return null;
   const c=D.cars.find(c=>(c.anzeige||c.n)===x.auto);if(!c)return null;
   const von=ausISO(x.von),bis=ausISO(x.bis),dauer=Math.round((bis-von)/86400000);if(dauer<1)return null;
-  const gm=wochenmiete(c,wtIndex(von),dauer),pf=1-D.rabatt[Math.min(dauer,D.days)-1];
+  const gm0=wochenmiete(c,wtIndex(von),dauer),gm=Math.round(gm0),pf=1-D.rabatt[Math.min(dauer,D.days)-1];   // ganze Euro (1.11.2026, Baran: keine Cent)
   const ab=x.angebot&&x.angebot.preis&&x.angebot.auto===x.auto&&x.angebot.von===x.von&&x.angebot.bis===x.bis?x.angebot:null;   // im Kalender abgemacht (30.10.2026)
-  const total=ab?ab.preis:gm*pf;
+  const total=Math.round(ab?ab.preis:gm0*pf);   // einmal runden, wie Preisrechner
   return{c,von,bis,dauer,liste:gm,total,ersparnis:Math.max(0,gm-total),proz:gm>0?Math.max(0,Math.round((gm-total)/gm*100)):0,abgemacht:!!ab}}
 function angebotsText(x,r){
   const kmGesamt=D.freiKm*r.dauer;
