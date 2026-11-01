@@ -349,7 +349,11 @@ function belegtDurch(x){
   let sp=[];try{sp=JSON.parse(localStorage.getItem("mietixSperren")||"[]")}catch(e){}
   sp.forEach(z=>{if(z.auto===x.auto&&z.von&&z.bis&&ueber(x.von,x.bis,z.von,z.bis))t.push({name:"Sperre: "+(z.grund||"gesperrt"),bis:z.bis})});
   return t}
-function preisZeile(x){
+function preisZeile(x){return anzWartet(x)+preisZeile0(x)}
+// Anzahlung angefordert (Seite Buchungen): sichtbar machen, blockt das Auto nicht (1.11.2026)
+function anzWartet(x){const w=x.status==="angebot"&&x.anzahlungAngefordert;if(!w)return"";const b=+w.betrag||0,am=String(w.am||"").slice(0,10);
+  return'<div class="epreis" style="color:#9A6400;font-weight:800">Wartet auf Anzahlung'+(b?" "+b.toLocaleString("de-DE",{maximumFractionDigits:0})+" €":"")+(am?", angefordert am "+am.split("-").reverse().join("."):"")+'</div>'}
+function preisZeile0(x){
   if(!x.auto||!x.von||!x.bis)return x.auto?'<div class="epreis"><i>Datum fehlt für Preis und Verfügbarkeit</i></div>':"";
   const b=belegtDurch(x),r=preisFuer(x);
   if(b.length)return'<div class="epreis belegt">Belegt: '+b.map(t=>t.name+" bis "+deutsch(t.bis)).join(", ")+'</div>';
@@ -1203,7 +1207,7 @@ zeigen();abgleichen();auslagernBald();
 
   // ‹ Start und Symbol in der Kopfzeile
   const ziel=document.querySelector("header h1")||document.querySelector(".topbar");
-  const TITEL={anfragen:"Anfragen",angebot:"Angebot",kalender:"Kalender",vertrag:"Mietverträge",kunden:"Kunden",autos:"Autos",geld:"Geld",
+  const TITEL={anfragen:"Anfragen",angebot:"Angebot",kalender:"Kalender",vertrag:"Buchungen",kunden:"Kunden",autos:"Autos",geld:"Geld",
     schaeden:/schadensformular/.test(pfad)?"Schadensmeldung":/schadensklaerung/.test(pfad)?"Schadensklärung":"Schäden",nachrichten:"Nachrichten",zahlen:"Zahlen",story:"Story",papierkorb:"Papierkorb",einstellungen:"Einstellungen"};
   if(ziel&&!istStart&&!document.querySelector(".mxStart")){
     const a=document.createElement("a");a.className="mxStart";a.href="https://barankohler.github.io/mietix-zentrale/";a.innerHTML="<b>‹</b>Start";a.setAttribute("aria-label","Zur Startseite");
