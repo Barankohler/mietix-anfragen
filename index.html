@@ -180,7 +180,7 @@ let SICHT="alle";   // Standard: alle Anfragen (31.10.2026, Baran)
 const STATUS=[["offen","offen"],["angebot","Angebot"],["gebucht","gebucht"],["abgesagt","abgesagt"]];
 
 function lesen(){ try{ return JSON.parse(localStorage.getItem("mietixAnfragen")||"[]"); }catch(e){ return []; } }
-function schreiben(a){ try{ localStorage.setItem("mietixAnfragen",JSON.stringify(a)); }catch(e){} }
+function schreiben(a){ try{ localStorage.setItem("mietixAnfragen",JSON.stringify(a)); return true; }catch(e){ return false; } }
 function heuteISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")
   +"-"+String(d.getDate()).padStart(2,"0"); }
 function gesternISO(){ const d=new Date(); d.setDate(d.getDate()-1);
@@ -478,7 +478,7 @@ $("speichern").onclick=()=>{
     name:name, alter:$("alter").value.trim(), ort:$("ort").value.trim(), nummer:nummer,
     auto:$("auto").value, von:$("von").value, bis:$("bis").value, vonU:$("vonU").value, bisU:$("bisU").value,
     notiz:$("notiz").value.trim(), status:"offen" });
-  schreiben(a);
+  if(!schreiben(a))return;   // nicht gespeichert: Formular bleibt stehen, roter Hinweis aus stil/schutz.py
   // Auto auch zurück auf "noch offen", sonst steht bei der nächsten Anfrage das alte Auto drin (30.10.2026)
   ["name","alter","ort","nummer","auto","von","bis","vonU","bisU","notiz"].forEach(k=>$(k).value="");$("vonU").value=$("bisU").value="10:00";zeitraumMarken();$("auto").dispatchEvent(new Event("change"));$("kundeCheck").innerHTML="";entwurfWeg();
   SICHT="alle";$("zeitraumF").classList.add("versteckt");
@@ -577,7 +577,7 @@ window.addEventListener("mietix-abgleich",()=>zeichnen());   // neuer Stand von 
    window.mietixKunden.merken(name, werte)  Felder eines Kunden im gemeinsamen Speicher ändern */
 (function(){
 const lies=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||"")||d}catch(e){return d}};
-const schreib=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const schreib=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}};   // false: nicht gespeichert, roter Hinweis kommt aus stil/schutz.py
 const norm=s=>String(s||"").toLowerCase().replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();   // Çelik findet man auch als celik
 const ziffern=n=>String(n||"").replace(/\D/g,"").replace(/^0049/,"0").replace(/^49/,"0");
 const de=s=>s&&/^\d{4}-\d{2}-\d{2}$/.test(s)?s.split("-").reverse().join("."):String(s||"");
@@ -1015,9 +1015,9 @@ zeigen();abgleichen();auslagernBald();
   addEventListener("unhandledrejection",e=>melde(e.reason&&(e.reason.message||e.reason)));
 
   // Entwurf: Felder eines Bereichs beim Tippen sichern
-  window.mxEntwurf=function(bereich,schluessel){const el=typeof bereich==="string"?document.querySelector(bereich):bereich,K="mietixFeld:"+schluessel;
+  window.mxEntwurf=function(bereich,schluessel,nur){const el=typeof bereich==="string"?document.querySelector(bereich):bereich,K="mietixFeld:"+schluessel;
     const leer={holen(){return false},weg(){},merken(){}};if(!el)return leer;
-    const felder=()=>[...el.querySelectorAll("input[id],textarea[id],select[id]")].filter(f=>!/^(password|file|hidden|button|submit|search)$/.test(f.type));
+    const felder=()=>[...el.querySelectorAll("input[id],textarea[id],select[id]")].filter(f=>!/^(password|file|hidden|button|submit|search)$/.test(f.type)&&(!nur||nur.includes(f.id)));
     let aus=false;
     const merken=()=>{if(aus)return;const d={};let etwas=false;felder().forEach(f=>{const v=f.type==="checkbox"?f.checked:f.value;d[f.id]=v;if(v&&v!==true)etwas=true});
       try{if(etwas)localStorage.setItem(K,JSON.stringify(d));else localStorage.removeItem(K)}catch(e){}};
