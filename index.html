@@ -106,8 +106,8 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
 <div class="block">
   <p class="feldname">Neue Anfrage</p>
   <div class="karte" id="formular">
-    <div class="anruf"><div id="modusAnruf">Anruf: nur das Nötigste</div><div id="modusVoll" class="an">Alles eintragen</div></div>
-    <div class="anruf" style="margin-top:0"><div id="einfuegen" style="background:#25D366;color:#fff;border-color:#25D366">WhatsApp-Nachricht einfügen</div></div>
+    <div class="anruf versteckt"><div id="modusAnruf">Anruf: nur das Nötigste</div><div id="modusVoll" class="an">Alles eintragen</div></div>
+    <div class="anruf versteckt" style="margin-top:0"><div id="einfuegen" style="background:#25D366;color:#fff;border-color:#25D366">WhatsApp-Nachricht einfügen</div></div>
     <textarea id="einfuegeText" class="versteckt" placeholder="Nachricht hier einfügen. Nummer, Datum und Auto werden erkannt." style="margin-bottom:8px;font-size:16px;min-height:80px"></textarea>
     <div class="zwei">
       <div><label>Name</label><input id="name" type="text" autocomplete="off" placeholder="Max Muster"></div>
@@ -152,7 +152,7 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
   <div id="liste"></div>
 </div>
 
-<div class="block">
+<div class="block versteckt">
   <p class="feldname">Tag teilen</p>
   <div class="karte">
     <button id="tagSenden">Tagesübersicht an WhatsApp</button>
@@ -165,7 +165,7 @@ footer{max-width:640px;margin:22px auto 0;padding:0 18px;font-size:12px;color:va
 </div>
 
 </main>
-<footer>
+<footer class="versteckt">
   Mit Anmeldung sind die Anfragen auf allen Geräten gleich (auch beim Bruder).
   Ohne Internet bleibt alles auf dem Handy und gleicht später ab.
 </footer>
@@ -297,7 +297,12 @@ function modus(anruf){document.getElementById("formular").classList.toggle("anru
   $("modusAnruf").classList.toggle("an",anruf);$("modusVoll").classList.toggle("an",!anruf);try{localStorage.setItem("mietixAnfrageModus",anruf?"anruf":"voll")}catch(e){}
   if(anruf)$("nummer").focus()}
 $("modusAnruf").onclick=()=>modus(true);$("modusVoll").onclick=()=>modus(false);
-try{if(localStorage.getItem("mietixAnfrageModus")==="anruf")modus(true)}catch(e){}
+modus(false);   // 1.11.2026 Baran: immer alles eintragen, Umschalter weg
+/* WhatsApp-Nachricht ins Feld Name, WhatsApp oder Notiz einfügen: Nummer, Name, Auto und Datum werden von selbst erkannt (1.11.2026, Knopf weg) */
+["name","nummer","notiz"].forEach(id=>{const f=$(id);if(f)f.addEventListener("paste",e=>{const t=(e.clipboardData||window.clipboardData).getData("text")||"";
+  if(t.trim().length<25)return;const r=erkenne(t);const n=["nummer","name","auto","von","bis"].filter(k=>r[k]).length;if(n<2)return;e.preventDefault();
+  if(r.nummer)$("nummer").value=r.nummer;if(r.name)$("name").value=r.name;if(r.auto)$("auto").value=r.auto;if(r.von)$("von").value=r.von;if(r.bis)$("bis").value=r.bis;
+  $("notiz").value=t.trim().slice(0,300);kundeCheck()})});
 const plusTage=(isoS,n)=>{const d=new Date(isoS+"T12:00");d.setDate(d.getDate()+n);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
 // Gleiche Knöpfe wie im Mietvertrag: Tage zählen ab heute, Wochenende ist das nächste (heute zählt mit)
 function zeitraumMarken(){document.querySelectorAll("#schnellDauer .c,#schnellWe .c").forEach(c=>c.classList.toggle("an",c.dataset.von===$("von").value&&c.dataset.bis===$("bis").value))}
