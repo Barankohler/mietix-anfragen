@@ -322,11 +322,13 @@ input[type=date],input[type=time]{min-width:0;max-width:100%}
   const SKO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h2"/></svg>';
   window.nkPaar=function(art){return'<span class="nkPaar'+(art?" "+art:"")+'"><button type="button" class="nkWa" data-nk="wa">'+SWA+'WhatsApp</button><button type="button" class="nkKo" data-nk="ko">'+SKO+'Kopieren</button></span>'};
   window.nkNummer=function(t){let n=String(t||"").replace(/\D/g,"");if(String(t||"").trim().startsWith("+"))return n;if(n.startsWith("00"))return n.slice(2);if(n.startsWith("0"))return"49"+n.slice(1);return n};
-  window.nkWa=function(tel,text){const n=nkNummer(tel);window.open("https://wa.me/"+(n&&n.length>=8?n:"")+"?text="+encodeURIComponent(text||""),"_blank")};
+  // Baran 05.11.2026: keine Anrede am Anfang, kein Gruß am Ende, in jeder Nachricht. Auch selbst gespeicherte Texte laufen hier durch.
+  window.nkOhneGruss=function(t){let s=String(t||"").replace(/^\s*(?:Hallo|Hi|Moin|Guten Tag|Guten Morgen|Guten Abend|Sehr geehrte[^\n,]*|Liebe[rs]?\b[^\n,]*)(?:\s+[^\s,!\n]+){0,2}\s*[,!]\s*/,"").replace(/\s*\n\s*(?:Viele|Liebe|Beste|Freundliche|Mit freundlichen)\s+Grüßen?\s*(?:\n[^\n]*)?\s*$/,"").replace(/\s*\n\s*(?:Ihr|Euer)\s+Mietix[- ]Team\s*$/,"").trim();return s?s.charAt(0).toUpperCase()+s.slice(1):s};
+  window.nkWa=function(tel,text){const n=nkNummer(tel);window.open("https://wa.me/"+(n&&n.length>=8?n:"")+"?text="+encodeURIComponent(nkOhneGruss(text)),"_blank")};
   function meld(t){let m=document.getElementById("nkMeld");if(!m){m=document.createElement("div");m.id="nkMeld";m.setAttribute("role","status");document.body.appendChild(m)}
     m.textContent=t;m.classList.add("an");clearTimeout(meld.z);meld.z=setTimeout(()=>m.classList.remove("an"),1800)}
   window.nkMeldung=meld;
-  window.nkKopieren=async function(text){let ok=false;try{await navigator.clipboard.writeText(text);ok=true}catch(e){}
+  window.nkKopieren=async function(text){text=nkOhneGruss(text);let ok=false;try{await navigator.clipboard.writeText(text);ok=true}catch(e){}
     if(!ok){try{const a=document.createElement("textarea");a.value=text;a.setAttribute("readonly","");a.style.position="fixed";a.style.opacity="0";document.body.appendChild(a);a.select();ok=document.execCommand("copy");a.remove()}catch(e){}}
     meld(ok?"✓ Kopiert":"Kopieren ging nicht, bitte Text lange antippen");return ok};
   // beide Knöpfe in el verbinden; textFn liefert den Text erst beim Tippen, nachher(art) z. B. zum Merken „gesendet“
@@ -469,20 +471,20 @@ function angebotsText(x,r){
   const kmGesamt=(r.abgemacht&&x.angebot&&(+x.angebot.freikm||+x.angebot.kmInkl))||D.freiKm*r.dauer;   // abgemachte km aus dem Kalender (1.11.2026)
   const zeitraum=wtKurz(r.von)+" "+kurz(r.von)+" bis "+wtKurz(r.bis)+" "+lang(r.bis)+", "+r.dauer+(r.dauer===1?" Tag":" Tage");
   const vn=String(x.name||"").trim().split(/\s+/)[0];
-  const z=[vn?"Hallo "+vn+",":"Guten Tag,","","*Ihr Angebot*","","- Fahrzeug: "+r.c.n,"- Zeitraum: "+zeitraum,"- Kilometer: "+kmGesamt.toLocaleString("de-DE")+" km inklusive",
+  const z=["*Ihr Angebot*","","- Fahrzeug: "+r.c.n,"- Zeitraum: "+zeitraum,"- Kilometer: "+kmGesamt.toLocaleString("de-DE")+" km inklusive",
     "- Zusatzfahrer: keine","- Kaution: "+(r.c.kaution?EUR0.format(r.c.kaution)+", kommt nach Rückgabe komplett zurück":"auf Anfrage"),""];
   if(r.proz>0){z.push("*Ihr Rabatt: "+r.proz+" %*","Statt "+EUR.format(r.liste)+" nur "+EUR.format(r.total),"Sie sparen "+EUR.format(r.ersparnis),"")}
   z.push("*Mietpreis: "+EUR.format(r.total)+"*");
   if(r.dauer>1){z.push("","Gilt nur für den kompletten Zeitraum "+zeitraum+" am Stück. Für einzelne Tage daraus gilt der reguläre Tagespreis.")}
-  z.push("","Soll ich den Wagen für Sie reservieren?","","Viele Grüße","B. Köhler vom Mietix-Team");return z.join("\n")}   // Gruß wie überall (1.11.2026)
+  z.push("","Soll ich den Wagen für Sie reservieren?");return z.join("\n")}   // ohne Anrede und Gruß (Baran 05.11.2026)
 // Belegt, wenn ein Mietvertrag (nicht zurück) oder eine andere gebuchte Anfrage dasselbe Auto im Zeitraum hat. Rückgabetag zählt nicht mit.
 function belegtDurch(x){
   if(!x.auto||!x.von||!x.bis)return[];
   const ueber=(v1,b1,v2,b2)=>v1<b2&&b1>v2,t=[];
   let vorg=[];try{vorg=JSON.parse(localStorage.getItem("mietixVorgaenge")||"[]")}catch(e){}
   const nG=s=>String(s||"").toLowerCase().replace(/\s+/g,"");   // der eigene Mietvertrag zählt nicht als belegt (30.10.2026)
-  vorg.forEach(v=>{if((x.vertrag&&v.nr===x.vertrag)||(x.name&&nG(v.name)===nG(x.name)))return;if(v.auto===x.auto&&v.status!=="zurück"&&v.vonD&&v.bisD&&ueber(x.von,x.bis,v.vonD,v.bisD))t.push({name:v.name,bis:v.bisD})});
-  lesen().forEach(a=>{if(a.id!==x.id&&a.status==="gebucht"&&a.auto===x.auto&&a.von&&a.bis&&ueber(x.von,x.bis,a.von,a.bis))t.push({name:a.name||"Anfrage",bis:a.bis})});
+  vorg.forEach(v=>{if((x.vertrag&&v.nr===x.vertrag)||(x.name&&nG(v.name)===nG(x.name)))return;if(v.auto===x.auto&&v.status!=="zurück"&&v.vonD&&v.bisD&&ueber(x.von,x.bis,v.vonD,v.ueb&&v.bisD<=heuteISO()?new Date(Date.now()+864e5).toISOString().slice(0,10):v.bisD))t.push({name:v.name,bis:v.bisD,bisU:v.bisU})});   // überfällig bleibt belegt
+  lesen().forEach(a=>{if(a.id!==x.id&&a.status==="gebucht"&&a.auto===x.auto&&a.von&&a.bis&&ueber(x.von,x.bis,a.von,a.bis))t.push({name:a.name||"Anfrage",bis:a.bis,bisU:a.bisU||(a.angebot||{}).bisU})});
   // Sperren aus dem Kalender zählen auch (Werkstatt, privat), wie im Mietvertrag (30.10.2026)
   let sp=[];try{sp=JSON.parse(localStorage.getItem("mietixSperren")||"[]")}catch(e){}
   sp.forEach(z=>{if(z.auto===x.auto&&z.von&&z.bis&&ueber(x.von,x.bis,z.von,z.bis))t.push({name:"Sperre: "+(z.grund||"gesperrt"),bis:z.bis})});
@@ -494,7 +496,7 @@ function anzWartet(x){const w=x.status==="angebot"&&x.anzahlungAngefordert;if(!w
 function preisZeile0(x){
   if(!x.auto||!x.von||!x.bis)return x.auto?'<div class="epreis"><i>Datum fehlt für Preis und Verfügbarkeit</i></div>':"";
   const b=belegtDurch(x),r=preisFuer(x);
-  if(b.length)return'<div class="epreis belegt">Belegt: '+esc(b.map(t=>t.name+" bis "+deutsch(t.bis)).join(", "))+'</div>';
+  if(b.length)return'<div class="epreis belegt">Belegt: '+esc(b.map(t=>t.name+" bis "+deutsch(t.bis)+(t.bisU?", "+t.bisU+" Uhr":"")).join(", "))+'</div>';
   if(!r)return'<div class="epreis"><i>Preis wird geladen …</i></div>';
   return'<div class="epreis frei">Frei. '+EUR.format(r.total)+' für '+r.dauer+(r.dauer===1?" Tag":" Tage")+(r.abgemacht?' <i>(abgemachter Preis'+(x.angebot.kmExtra?', +'+x.angebot.kmExtra+' Extra-km':'')+')</i>':(r.proz?' <i>(mit '+r.proz+' % Mengenrabatt)</i>':''))+'</div>'}
 
@@ -526,10 +528,10 @@ const zahlDE=v=>{const s=String(v||"").trim();if(!s)return null;const n=parseFlo
 /* ---------- WhatsApp-Nachricht einfügen: Nummer, Datum, Auto, Name erkennen (28.10.2026) ---------- */
 function erkenne(text){const ohneStempel=text.replace(/\[\d{1,2}\.\d{1,2}\.(\d{2,4})?,?\s*\d{1,2}:\d{2}(:\d{2})?\]/g," ");   // WhatsApp-Zeitstempel [28.10., 14:03] raus
   const t=" "+ohneStempel.replace(/\u00a0/g," ")+" ";const r={};
-  const nr=t.match(/(\+49|0049|0)\s?[1-9][0-9\s\/-]{7,15}/);if(nr)r.nummer=nr[0].replace(/[\s\/-]/g,"").replace(/^0049/,"0").replace(/^\+49/,"0");
+  const nr=t.match(/(\+\d{1,3}|00\d{1,3}|0)\s?[1-9][0-9\s\/-]{6,15}/);if(nr)r.nummer=nr[0].replace(/[\s\/-]/g,"").replace(/^0049/,"0").replace(/^\+49/,"0").replace(/^00(?=[1-9])/,"+");   // +90 oder 0041 bleibt, sonst geht WhatsApp an +49
   const jetzt=new Date(),jahr=jetzt.getFullYear();const daten=[];
-  const re=/(\d{1,2})\.\s?(\d{1,2})\.?\s?(\d{2,4})?/g;let m;
-  while((m=re.exec(t))){let d=+m[1],mo=+m[2],j=m[3]?+m[3]:jahr;if(j<100)j+=2000;if(d>31||mo>12)continue;
+  const re=/(\d{1,2})\.\s?(\d{1,2})\.?(?:\s?(\d{4})(?!\d)|(\d{2})(?!\d))?/g;let m;const tD=t.replace(/(\d{1,2})\.?\s*(?:-|–|bis)\s*(\d{1,2})\.\s?(\d{1,2})\.?/g,"$1.$3. $2.$3.");
+  while((m=re.exec(tD))){m[3]=m[3]||m[4];let d=+m[1],mo=+m[2],j=m[3]?+m[3]:jahr;if(j<100)j+=2000;if(d>31||mo>12)continue;
     let dt=new Date(j,mo-1,d);if(!m[3]&&dt<jetzt&&(jetzt-dt)>1000*3600*24*30)dt=new Date(j+1,mo-1,d);daten.push(dt)}
   if(daten.length){const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
     daten.sort((a,b)=>a-b);r.von=iso(daten[0]);if(daten.length>1)r.bis=iso(daten[daten.length-1]);
@@ -540,7 +542,7 @@ function erkenne(text){const ohneStempel=text.replace(/\[\d{1,2}\.\d{1,2}\.(\d{2
     ["clubsport","VW Golf 8 GTI Clubsport"],["gti","VW Golf 8 GTI Clubsport"],["golf8diesel","VW Golf 8 2.0 Diesel"],["golfdiesel","VW Golf 8 2.0 Diesel"],["e400","Mercedes E 400 d"],["eklasse","Mercedes E 400 d"]].find(([k])=>tl.indexOf(k)>=0);
   if(auto&&AUTOS.indexOf(auto[1])>=0)r.auto=auto[1];
   const wa=text.match(/^\[[^\]]+\]\s*([^:\n]{2,40}):/m);if(wa&&!/mietix|baran|berdan/i.test(wa[1]))r.name=wa[1].trim();
-  else{const n=text.match(/(?:ich bin|mein name ist|hier ist|name:)\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s[A-ZÄÖÜ][a-zäöüß-]+)+)/i);if(n)r.name=n[1]}
+  else{const n=text.match(/(?:[Ii]ch bin|[Mm]ein [Nn]ame ist|[Hh]ier ist|[Nn]ame:)\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s[A-ZÄÖÜ][a-zäöüß-]+)+)/);if(n)r.name=n[1]}
   return r}
 $("einfuegen").onclick=async()=>{const ta=$("einfuegeText");
   if(ta.classList.contains("versteckt")){ta.classList.remove("versteckt");try{const c=await navigator.clipboard.readText();if(c)ta.value=c}catch(e){}ta.focus();if(!ta.value){ta.placeholder="Nachricht hier einfügen (lange drücken, Einfügen). Dann nochmal auf den grünen Knopf.";return}}
@@ -601,7 +603,7 @@ function esc(t){return String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"
 function nachfassen(x,wa){if(x.status!=="angebot"||!wa)return"";
   if(x.nachgefasst)return'<div class="ebez">Nachgefragt am '+deutsch(x.nachgefasst)+'</div>';
   const seit=Math.round((new Date(heuteISO())-new Date(String((x.angebot&&x.angebot.am)||x.tag).slice(0,10)))/864e5);if(seit<2)return"";
-  const vn=String(x.name||"").trim().split(/\s+/)[0],t="Hallo"+(vn?" "+vn:"")+",\n\nich wollte kurz nachfragen, ob unser Angebot"+(x.auto?" für den "+x.auto:"")+(x.von?" vom "+deutsch(x.von)+(x.bis?" bis "+deutsch(x.bis):""):"")+" noch passt. Gerne halte ich Ihnen das Fahrzeug frei.\n\nViele Grüße\nIhr Mietix-Team";
+  const vn=String(x.name||"").trim().split(/\s+/)[0],t="Ich wollte kurz nachfragen, ob unser Angebot"+(x.auto?" für den "+x.auto:"")+(x.von?" vom "+deutsch(x.von)+(x.bis?" bis "+deutsch(x.bis):""):"")+" noch passt. Gerne halte ich Ihnen das Fahrzeug frei.";
   return'<div class="nkBlock" data-nf="'+x.id+'" data-nftel="'+String(wa).replace(/\D/g,"")+'" data-nftext="'+encodeURIComponent(t)+'"><span class="nkLabel">Nachfragen<i>seit '+seit+' Tagen keine Antwort</i></span>'+nkPaar()+'</div>'}
 function gefiltert(){
   const a=lesen();
