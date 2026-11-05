@@ -492,7 +492,7 @@ function belegtDurch(x){
   lesen().forEach(a=>{if(a.id!==x.id&&a.status==="gebucht"&&a.auto===x.auto&&a.von&&a.bis&&ueber(x.von,x.bis,a.von,a.bis))t.push({name:a.name||"Anfrage",bis:a.bis,bisU:a.bisU||(a.angebot||{}).bisU})});
   // Sperren aus dem Kalender zählen auch (Werkstatt, privat), wie im Mietvertrag (30.10.2026)
   let sp=[];try{sp=JSON.parse(localStorage.getItem("mietixSperren")||"[]")}catch(e){}
-  sp.forEach(z=>{if(z.auto===x.auto&&z.von&&z.bis&&ueber(x.von,x.bis,z.von,z.bis))t.push({name:"Sperre: "+(z.grund||"gesperrt"),bis:z.bis})});
+  sp.forEach(z=>{if(z.auto===x.auto&&z.von&&z.bis&&ueber(x.von,x.bis,z.von,z.bis))t.push({name:z.auto+" selbst gesperrt bis "+deutsch(z.bis).slice(0,6)+(z.grund?": "+z.grund:""),bis:z.bis,sperre:true})});
   return t}
 function preisZeile(x){return anzWartet(x)+preisZeile0(x)}
 // Anzahlung angefordert (Seite Buchungen): sichtbar machen, blockt das Auto nicht (1.11.2026)
@@ -501,7 +501,7 @@ function anzWartet(x){const w=x.status==="angebot"&&x.anzahlungAngefordert;if(!w
 function preisZeile0(x){
   if(!x.auto||!x.von||!x.bis)return x.auto?'<div class="epreis"><i>Datum fehlt für Preis und Verfügbarkeit</i></div>':"";
   const b=belegtDurch(x),r=preisFuer(x);
-  if(b.length)return'<div class="epreis belegt">Belegt: '+esc(b.map(t=>t.name+" bis "+deutsch(t.bis)+(t.bisU?", "+t.bisU+" Uhr":"")).join(", "))+'</div>';
+  if(b.length)return'<div class="epreis belegt">'+(b.some(t=>!t.sperre)?"Belegt: ":"")+esc(b.map(t=>t.sperre?t.name:t.name+" bis "+deutsch(t.bis)+(t.bisU?", "+t.bisU+" Uhr":"")).join(", "))+'</div>';
   if(!r)return'<div class="epreis"><i>'+(D?(D.cars.some(c=>(c.anzeige||c.n)===x.auto)?"Zeitraum prüfen, kein Preis berechenbar":"Kein Preis hinterlegt"):"Preis wird geladen …")+'</i></div>';
   return'<div class="epreis frei">Frei. '+EUR.format(r.total)+' für '+r.dauer+(r.dauer===1?" Tag":" Tage")+(r.abgemacht?' <i>(abgemachter Preis'+(x.angebot.kmExtra?', +'+x.angebot.kmExtra+' Extra-km':'')+')</i>':(r.proz?' <i>(mit '+r.proz+' % Mengenrabatt)</i>':''))+'</div>'}
 
@@ -683,7 +683,7 @@ function zeichnen(){
         if(t.status==="gebucht"&&!confirm(wer+" ist GEBUCHT"+(was?" ("+was+")":"")+".\n\nWirklich auf „"+(neu==="angebot"?"Angebot":neu)+"“ setzen? Das Auto ist dann im Kalender wieder frei"+(t.anzahlung&&t.anzahlung.am?", die Anzahlung bleibt eingetragen":"")+"."))return;
         if(t.status!=="gebucht"&&neu==="abgesagt"&&!confirm("Anfrage von "+wer+" wirklich absagen?"))return;
         if(neu==="gebucht"){const b=belegtDurch(t);
-          if(b.length&&!confirm("ACHTUNG, "+t.auto+" ist da schon vergeben:\n"+b.map(z=>z.name+" bis "+deutsch(z.bis)).join("\n")+"\n\nTrotzdem "+wer+" buchen? Dann ist das Auto doppelt verplant."))return;
+          if(b.length&&!confirm("ACHTUNG, "+t.auto+" ist da schon vergeben:\n"+b.map(z=>z.sperre?z.name:z.name+" bis "+deutsch(z.bis)).join("\n")+"\n\nTrotzdem "+wer+" buchen? Dann ist das Auto doppelt verplant."))return;
           if(!b.length&&!confirm(wer+" wirklich auf GEBUCHT setzen?"+(was?"\n\n"+was:"")+"\n\nDas Auto ist dann im Kalender belegt."))return}
         t.status=neu; schreiben(a); zeichnen(); };
     });
