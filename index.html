@@ -490,9 +490,9 @@ function belegtDurch(x){
   const nG=s=>String(s||"").toLowerCase().replace(/\s+/g,"");   // der eigene Mietvertrag zählt nicht als belegt (30.10.2026)
   vorg.forEach(v=>{if((x.vertrag&&v.nr===x.vertrag)||(x.name&&nG(v.name)===nG(x.name)))return;if(v.auto===x.auto&&v.status!=="zurück"&&v.vonD&&v.bisD&&ueber(x.von,x.bis,v.vonD,v.ueb&&v.bisD<=heuteISO()?new Date(Date.now()+864e5).toISOString().slice(0,10):v.bisD))t.push({name:v.name,bis:v.bisD,bisU:v.bisU})});   // überfällig bleibt belegt
   lesen().forEach(a=>{if(a.id!==x.id&&a.status==="gebucht"&&a.auto===x.auto&&a.von&&a.bis&&ueber(x.von,x.bis,a.von,a.bis))t.push({name:a.name||"Anfrage",bis:a.bis,bisU:a.bisU||(a.angebot||{}).bisU})});
-  // Sperren aus dem Kalender zählen auch (Werkstatt, privat), wie im Mietvertrag (30.10.2026)
+  // Sperren aus dem Kalender zählen auch (Werkstatt, privat), wie im Mietvertrag (30.10.2026). Letzter Tag ist frei, erster Tag zählt ab 00:00 Uhr, Regel wie im Kalender (D17, 05.11.2026)
   let sp=[];try{sp=JSON.parse(localStorage.getItem("mietixSperren")||"[]")}catch(e){}
-  sp.forEach(z=>{if(z.auto===x.auto&&z.von&&z.bis&&ueber(x.von,x.bis,z.von,z.bis))t.push({name:z.auto+" selbst gesperrt bis "+deutsch(z.bis).slice(0,6)+(z.grund?": "+z.grund:""),bis:z.bis,sperre:true})});
+  sp.forEach(z=>{if(!z._weg&&z.auto===x.auto&&z.von&&z.bis&&x.von<z.bis&&x.bis>=z.von)t.push({name:z.auto+" selbst gesperrt bis "+deutsch(z.bis).slice(0,6)+(z.grund?": "+z.grund:""),bis:z.bis,sperre:true})});
   return t}
 function preisZeile(x){return anzWartet(x)+preisZeile0(x)}
 // Anzahlung angefordert (Seite Buchungen): sichtbar machen, blockt das Auto nicht (1.11.2026)
@@ -589,9 +589,10 @@ function kundeInfo(name,nummer){name=(name||"").trim().toLowerCase();const nr=zi
   const k=Object.keys(kunden).find(n=>n.trim().toLowerCase()===name||(nr.length>=6&&ziffern(kunden[n].telefon)===nr));
   const d=k?kunden[k]:null;
   const meine=vorg.filter(v=>(v.name||"").trim().toLowerCase()===name||(nr.length>=6&&ziffern(v.telefon)===nr));
-  const offen=meine.filter(v=>v.vonD&&v.vonD<heuteISO()&&!((v.zahlung||{}).rest||{}).am&&zahlDE(((v.zahlung||{}).rest||{}).betrag));
+  const offenM=v=>(!((v.zahlung||{}).rest||{}).am?(zahlDE(((v.zahlung||{}).rest||{}).betrag)||0):0)+(v.verlaengerungen||[]).reduce((s,y)=>s+(!y.bezahlt?(+y.aufpreis||0):Math.max(0,y.gezahlt!=null?(+y.aufpreis||0)-y.gezahlt:0)),0);   // wie offenBetrag im Mietvertrag (05.11.2026)
+  const offen=meine.filter(v=>v.vonD&&v.vonD<heuteISO()&&offenM(v)>0);
   const warn=[];if(d&&d.rechtsstreit)warn.push("RECHTSSTREIT läuft");if(d&&d.schadenOffen)warn.push("offener Schaden "+EUR.format(d.schadenOffen)+(d.schadenFaelle>1?" ("+d.schadenFaelle+" Fälle)":""));
-  if(offen.length)warn.push("Miete nicht bezahlt: "+offen.map(v=>EUR.format(zahlDE(v.zahlung.rest.betrag))+" ("+v.auto+", "+deutsch(v.vonD)+")").join(", "));
+  if(offen.length)warn.push("Miete nicht bezahlt: "+offen.map(v=>EUR.format(offenM(v))+" ("+v.auto+", "+deutsch(v.vonD)+")").join(", "));
   if(warn.length)return{art:"rot",text:"ACHTUNG: "+warn.join(". ")};
   // Stammkunde erst ab 2 Mieten (Baran, 31.10.2026)
   if(meine.length>=2)return{art:"gruen",text:"Stammkunde: "+meine.length+" Mieten, zuletzt "+meine[meine.length-1].auto};
@@ -906,7 +907,7 @@ function alle(){
     if(!e.gesperrt)["telefon","anschrift","geb","gebort","email"].forEach(f=>{if(!e[f]&&v[f])e[f]=String(v[f])});
     const z=v.zahlung||{},rest=z.rest||{};
     e.vertraege.push({nr:v.nr,auto:v.auto||"",von:v.vonD||"",bis:v.bisD||"",preis:zahl(v.gesamt||v.preis1),status:v.status||"",
-      mieteOffen:!!(v.vonD&&v.vonD<h&&!rest.am&&zahl(rest.betrag))})});
+      mieteOffen:!!(v.vonD&&v.vonD<h&&((!rest.am&&zahl(rest.betrag))||(v.verlaengerungen||[]).some(y=>!y.bezahlt?+y.aufpreis>0:y.gezahlt!=null&&(+y.aufpreis||0)>y.gezahlt)))})});   // wie offenBetrag im Mietvertrag (05.11.2026)
   A.forEach(a=>{if(!a||!a.name)return;const e=hol(a.name,"anfrage");if(!e)return;
     if(!e.gesperrt){if(!e.telefon&&a.nummer)e.telefon=String(a.nummer);if(!e.ort&&a.ort)e.ort=String(a.ort)}
     e.anfragen.push({tag:a.tag||"",auto:a.auto||"",von:a.von||"",bis:a.bis||"",status:a.status||""})});
@@ -991,7 +992,7 @@ const lies=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||"")||d}catch(e
 function liesAblage(k){const c=SPEICHER[k],leer=c.liste?[]:{},r=localStorage.getItem(k);if(r===null||r==="")return{w:leer,fehlt:true};
   try{const w=JSON.parse(r);if(w===null)return{w:leer,fehlt:true};if(c.liste?Array.isArray(w):(w&&typeof w==="object"&&!Array.isArray(w)))return{w}}catch(e){}
   return{w:leer,kaputt:true}}
-const merk=(k,v)=>{try{roh.call(localStorage,k,JSON.stringify(v));return true}catch(e){if(window.mxFehler)mxFehler("Nicht gespeichert: Der Speicher auf diesem Gerät ist voll. Seite offen lassen, sonst geht etwas verloren.");return false}};   // Hinweis auch hier (1.11.2026)
+const merk=(k,v)=>{try{roh.call(localStorage,k,JSON.stringify(v));return true}catch(e){if(window.mxVoll)mxVoll();else if(window.mxFehler)mxFehler("Nicht gespeichert: Der Speicher auf diesem Gerät ist voll. Seite offen lassen, sonst geht etwas verloren.");return false}};   // Hinweis auch hier (1.11.2026)
 // Jede Anfrage an den Speicher höchstens 20 Sekunden (31.10.2026): sonst hing der Abgleich bei schlechtem Netz für immer
 const KEINE_VERBINDUNG="Keine Verbindung, wird nachgeholt";   // statt „Failed to fetch“ und „signal is aborted“ (05.11.2026)
 const holeMit=(u,o)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),20000);return fetch(u,Object.assign({},o,{signal:c.signal})).catch(()=>{throw new Error(KEINE_VERBINDUNG)}).finally(()=>clearTimeout(t))};
@@ -1233,7 +1234,7 @@ Storage.prototype.setItem=function(k,v){const alt=(this===localStorage&&SPEICHER
 const NAMEN={mietixVorgaenge:"Mietvertrag",mietixAnfragen:"Anfrage",mietixKunden:"Kunde",mietixFahrzeuge:"Fahrzeug",mietixAusgaben:"Ausgabe",
   mietixSperren:"Sperre",mietixAufgaben:"Aufgabe",mietixZustand:"Zustand",mietixAutos:"Auto"};
 const BESCHRIFTUNG={mietixVorgaenge:x=>"Mietvertrag "+(x.nr||"")+" "+(x.name||""),mietixAnfragen:x=>"Anfrage "+(x.name||"")+(x.auto?", "+x.auto:""),
-  mietixAusgaben:x=>"Ausgabe "+(x.betrag!=null?(isNaN(+x.betrag)?String(x.betrag):(+x.betrag).toLocaleString("de-DE",{maximumFractionDigits:2}))+" €":"")+(x.art?", "+String(x.art).trim():"")+(x.auto?", "+x.auto:""),
+  mietixAusgaben:x=>"Ausgabe "+(x.betrag!=null?(isNaN(+x.betrag)?String(x.betrag).replace(/\s*€\s*$/,""):(+x.betrag).toLocaleString("de-DE",{maximumFractionDigits:2}))+" €":"")+(x.art?", "+String(x.art).trim():"")+(x.auto?", "+x.auto:""),
   mietixSperren:x=>"Sperre "+(x.auto||"")+(x.von?" ab "+x.von.split("-").reverse().join("."):""),mietixAufgaben:x=>"Aufgabe "+(x.aufgabe||""),
   mietixZustand:x=>"Zustand "+(x.auto||"")+": "+(x.text||"")};
 let burst=null,burstZeit=null;
@@ -1283,7 +1284,10 @@ window.mietixWiederherstellen=function(id){const pk=lies("mietixPapierkorb",[]),
   if(da!==undefined&&fp(da)!==fp(e.eintrag)&&e.ablage==="mietixVorgaenge"&&andererKunde(da,e.eintrag))nummerGewechselt(m,e.schluessel,e.eintrag,freieNummer(m));
   else{if(da!==undefined&&fp(da)!==fp(e.eintrag))andereFassung(e.ablage,e.schluessel,da);m[e.schluessel]=e.eintrag}
   localStorage.setItem(e.ablage,JSON.stringify(ausMap(e.ablage,m)));
-  window.dispatchEvent(new CustomEvent("mietix-abgleich",{detail:[e.ablage,"mietixPapierkorb"]}));return true};
+  // Mietvertrag mit Storno zurück: die Buchung kommt mit, wie bei Rückgängig (K B6, 05.11.2026)
+  let auch=[];if(e.ablage==="mietixVorgaenge"){const an=lies("mietixAnfragen",[]);let neu=false;an.forEach(x=>{if(x&&!x._weg&&x.storniert&&x.storniert.mitVertrag===e.schluessel){x.status="gebucht";delete x.storniert;(x.verlauf=x.verlauf||[]).push({am:new Date().toISOString(),was:"Storno zurückgenommen, Mietvertrag "+e.schluessel+" wiederhergestellt"});neu=true}});
+    if(neu){localStorage.setItem("mietixAnfragen",JSON.stringify(an));auch=["mietixAnfragen"]}}
+  window.dispatchEvent(new CustomEvent("mietix-abgleich",{detail:[e.ablage,"mietixPapierkorb"].concat(auch)}));return true};
 window.mietixPapierkorb=()=>lies("mietixPapierkorb",[]).slice().sort((a,b)=>a.zeit<b.zeit?1:-1);
 
 /* ---------- Vertragsnummer aus dem gemeinsamen Speicher ---------- */
@@ -1382,10 +1386,21 @@ zeigen();abgleichen();auslagernBald();
     box.textContent=String(text||"");const x=document.createElement("i");x.textContent="✕";box.appendChild(x);box.classList.add("an");
     clearTimeout(uhr);if(ms)uhr=setTimeout(()=>box.classList.remove("an"),ms)};
 
+  // Speicher voll: Ausweg ohne Löschen (05.11.2026, D25). Alles Getippte dieser Seite lässt sich kopieren und auf einem anderen Gerät weitermachen, gelöscht wird nichts
+  function getippt(){const z=[];document.querySelectorAll("input,textarea,select").forEach(e=>{if(e.disabled||e.type==="password"||e.type==="hidden"||e.type==="file"||e.type==="button"||e.type==="submit"||!e.offsetParent)return;
+      if((e.type==="checkbox"||e.type==="radio")&&!e.checked)return;const w=e.tagName==="SELECT"?(e.options[e.selectedIndex]||{}).text:e.value;if(!w||!String(w).trim())return;
+      const l=(e.id&&document.querySelector('label[for="'+e.id+'"]'))||e.closest("label")||(e.previousElementSibling&&e.previousElementSibling.tagName==="LABEL"?e.previousElementSibling:null);z.push(((l&&l.textContent.trim())||e.placeholder||e.id||"Feld")+": "+String(w).trim())});
+    return document.title+", "+new Date().toLocaleString("de-DE")+"\n"+z.join("\n")}
+  async function kopieren(t){try{await navigator.clipboard.writeText(t);return true}catch(e){const a=document.createElement("textarea");a.value=t;a.style.cssText="position:fixed;opacity:0";document.body.appendChild(a);a.select();let ok=false;try{ok=document.execCommand("copy")}catch(x){}a.remove();return ok}}
+  window.mxVoll=function(){mxFehler("Nicht gespeichert: Der Speicher auf diesem Gerät ist voll. Nichts wird gelöscht. Seite offen lassen, das Getippte kopieren und auf einem anderen Gerät weitermachen.");
+    const b=box;if(!b||b.querySelector("#mxKopier"))return;const k=document.createElement("button");k.id="mxKopier";k.type="button";k.textContent="Getipptes kopieren";
+    k.style.cssText="display:block;width:auto;min-height:40px;margin:10px 0 0;padding:8px 14px;border:0;border-radius:10px;background:#fff;color:#C4161C;font:700 15px -apple-system,system-ui,sans-serif;cursor:pointer";
+    k.onclick=async e=>{e.stopPropagation();const ok=await kopieren(getippt());k.textContent=ok?"✓ Kopiert, jetzt auf dem anderen Gerät einfügen":"Kopieren ging nicht, bitte abschreiben"};b.appendChild(k)};
+
   // Speichern auf dem Gerät scheitert: jede Seite meldet es rot, auch wenn sie den Fehler selbst verschluckt
   try{const orig=Storage.prototype.setItem;
     Storage.prototype.setItem=function(k,v){try{return orig.call(this,k,v)}catch(e){
-      mxFehler("Nicht gespeichert: Der Speicher auf diesem Gerät ist voll oder gesperrt. Seite offen lassen, sonst geht das Getippte verloren.");throw e}}}catch(e){}
+      mxVoll();throw e}}}catch(e){}
 
   // Preise nicht geladen (nur Seiten, die Preise brauchen)
   if(document.documentElement.innerHTML.indexOf("mietix-preise/preise.json")>=0)setTimeout(()=>{
