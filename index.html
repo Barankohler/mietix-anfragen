@@ -121,6 +121,11 @@ header .plus{position:absolute;right:16px;top:calc(10px + env(safe-area-inset-to
 #fNeu .mxKopf h3{font-size:20px;font-weight:700}
 #entwurfHinweis{margin-bottom:12px}
 .eintrag .minik.anzk{background:#fff!important;color:#C4161C!important;border:1.5px solid #C4161C!important;font-weight:700}
+/* Text immer mittig, Knöpfe einer Reihe gleich hoch (06.11.2026) */
+.eintrag .minik{display:flex!important;align-items:center;justify-content:center;box-sizing:border-box;min-height:46px}
+.eintrag .ereihe .minik{height:100%}
+.eintrag .minik.weg{border:1.5px solid transparent}
+.eintrag.zeigeMark{outline:3px solid #C4161C;outline-offset:2px;box-shadow:0 0 0 6px rgba(196,22,28,.18);transition:outline-color .6s,box-shadow .6s}
 /* Grüne Meldung unten (Erfolg) */
 #meldung{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1E8E4E;color:#fff;padding:12px 20px;border-radius:999px;font-weight:700;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:95;white-space:nowrap}
 #meldung.an{opacity:1}
@@ -500,11 +505,14 @@ function belegtDurch(x){
   sp.forEach(z=>{if(!z._weg&&z.auto===x.auto&&z.von&&z.bis&&x.von<z.bis&&x.bis>=z.von)t.push({name:z.auto+" selbst gesperrt bis "+deutsch(z.bis).slice(0,6)+(z.grund?": "+z.grund:""),bis:z.bis,sperre:true})});
   return t}
 function preisZeile(x){return anzWartet(x)+preisZeile0(x)}
+// Zeitraum hat schon begonnen oder ist vorbei: nicht als frei bewerben, kein Angebot mit vergangener Zeit (06.11.2026). Gebuchtes und Abgesagtes bleibt wie es ist
+function vorbei(x){return !!(x&&x.von&&x.status!=="gebucht"&&x.status!=="abgesagt"&&x.von<heuteISO())}
 // Anzahlung angefordert (Seite Buchungen): sichtbar machen, blockt das Auto nicht (1.11.2026)
 function anzWartet(x){const w=x.status==="angebot"&&x.anzahlungAngefordert;if(!w)return"";const b=+w.betrag||0,am=String(w.am||"").slice(0,10);
   return'<div class="epreis" style="color:#9A6400;font-weight:800">Wartet auf Anzahlung'+(b?" "+b.toLocaleString("de-DE",{maximumFractionDigits:0})+" €":"")+(am?", angefordert am "+am.split("-").reverse().join("."):"")+'</div>'}
 function preisZeile0(x){
   if(!x.auto||!x.von||!x.bis)return x.auto?'<div class="epreis"><i>Datum fehlt für Preis und Verfügbarkeit</i></div>':"";
+  if(vorbei(x))return'<div class="epreis belegt">Zeitraum vorbei'+(x.bis&&x.bis>=heuteISO()?" (Beginn "+deutsch(x.von)+")":"")+'. Für ein Angebot neues Datum mit dem Kunden absprechen.</div>';
   const b=belegtDurch(x),r=preisFuer(x);
   if(b.length)return'<div class="epreis belegt">'+(b.some(t=>!t.sperre)?"Belegt: ":"")+esc(b.map(t=>t.sperre?t.name:t.name+" bis "+deutsch(t.bis)+(t.bisU?", "+t.bisU+" Uhr":"")).join(", "))+'</div>';
   if(!r)return'<div class="epreis"><i>'+(D?(D.cars.some(c=>(c.anzeige||c.n)===x.auto)?"Zeitraum prüfen, kein Preis berechenbar":"Kein Preis hinterlegt"):"Preis wird geladen …")+'</i></div>';
@@ -608,6 +616,8 @@ function kundeInfo(name,nummer){const MK=window.mietixKunden;if(!MK)return null;
   if(mieten>=2)return{art:"gruen",text:"Stammkunde: "+mieten+" Mieten, zuletzt "+(e.letztesAuto||"")};
   if(mieten===1)return{art:"grau",text:"Kennt uns: 1 Miete, zuletzt "+(e.letztesAuto||"")};
   return d?{art:"grau",text:"Bekannt, noch kein Mietvertrag im System"}:null}
+// Steht der Kunde auf der Seite Kunden? Gleiche Prüfung wie dort (?kunde= sucht über den Namen, alle Schreibweisen) (06.11.2026)
+function kundeDa(name){const MK=window.mietixKunden;if(!MK||!MK.norm(name))return false;return !!MK.eins(String(name||"").trim(),kiAlle())}
 function kundeCheck(){const i=kundeInfo($("name").value,$("nummer").value);$("kundeCheck").innerHTML=i?'<div class="warn '+i.art+'">'+i.text+'</div>':""}
 ["name","nummer"].forEach(id=>$(id).addEventListener("input",kundeCheck));
 window.addEventListener("mietix-kunden-bereit",()=>{KI_L=null;try{zeichnen();kundeCheck()}catch(e){}});   // kundensuche.js lädt am Seitenende
@@ -620,7 +630,8 @@ window.addEventListener("mietix-kunden-bereit",()=>{KI_L=null;try{zeichnen();kun
 function esc(t){return String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;")}   // gespeicherter Text ist nie Code (04.11.2026)
 function nachfassen(x,wa){if(x.status!=="angebot"||!wa)return"";
   if(x.nachgefasst)return'<div class="ebez">Nachgefragt am '+deutsch(x.nachgefasst)+'</div>';
-  const seit=Math.round((new Date(heuteISO())-new Date(String((x.angebot&&x.angebot.am)||x.tag).slice(0,10)))/864e5);if(seit<2)return"";
+  const seitAb=String((x.angebot&&x.angebot.am)||x.tag||"").slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(seitAb))return"";   // ohne Datum keine Zeile (06.11.2026, sonst „seit NaN Tagen“)
+  const seit=Math.round((new Date(heuteISO())-new Date(seitAb))/864e5);if(!(seit>=2))return"";if(vorbei(x))return"";
   // Auto inzwischen vergeben: kein „halte ich frei“, sondern ein anderes Fahrzeug anbieten (06.11.2026)
   const bel=belegtDurch(x).length>0,zr=(x.von?" vom "+deutsch(x.von)+(x.bis?" bis "+deutsch(x.bis):""):"");
   const t=bel?"Der "+(x.auto||"Wagen")+" ist"+zr+" leider inzwischen vergeben. Soll ich Ihnen für den Zeitraum ein anderes Fahrzeug anbieten?"
@@ -659,7 +670,7 @@ function zeichnen(){
     const zeitraum = x.von ? deutsch(x.von)+(x.vonU?" "+x.vonU:"")+(x.bis?" bis "+deutsch(x.bis)+(x.bisU?" "+x.bisU:""):"") : "";
     return '<div class="eintrag '+x.status+'" data-id="'+x.id+'">'
       // Name antippbar mit ›, wenn es den Kunden schon gibt (Mietvertrag oder Kunde gespeichert): öffnet ihn auf der Seite Kunden (1.11.2026)
-      +'<div class="ekopf"><div>'+(x.name&&kundeInfo(x.name,x.nummer)?'<a class="ename" href="https://barankohler.github.io/mietix-zentrale/kunden.html?kunde='+encodeURIComponent(x.name.trim())+'">'+esc(x.name)+'<em>›</em></a>':'<span class="ename">'+esc(x.name||"ohne Namen")+'</span>')
+      +'<div class="ekopf"><div>'+(x.name&&kundeDa(x.name,x.nummer)?'<a class="ename" href="https://barankohler.github.io/mietix-zentrale/kunden.html?kunde='+encodeURIComponent(x.name.trim())+'">'+esc(x.name)+'<em>›</em></a>':'<span class="ename">'+esc(x.name||"ohne Namen")+'</span>')
       +'<div class="edaten">'+esc([x.nummer||"", x.alter?x.alter+" Jahre":"", x.ort||""].filter(Boolean).join(", "))+'</div></div>'
       +'<span class="ezeit">'+(x.uhr||"")+(SICHT==="alle"||SICHT==="zeitraum"?"  "+deutsch(x.tag):"")+'</span></div>'
       +(x.auto||zeitraum ? '<div class="ewunsch">'+esc([x.auto,zeitraum].filter(Boolean).join("  |  "))+'</div>':'')
@@ -671,11 +682,11 @@ function zeichnen(){
         +STATUS.map(s=>'<div class="minik '+(x.status===s[0]?"an":"")+'" data-s="'+s[0]+'">'+s[1]+'</div>').join("")
       +'</div>'
       // Gebucht: ein Klick öffnet den Mietvertrag schon ausgefüllt (gleicher Speicher auf barankohler.github.io)
-      +(x.status!=="abgesagt"&&x.status!=="gebucht"&&preisFuer(x)&&!belegtDurch(x).length?'<a class="minik angebot" href="https://barankohler.github.io/mietix-belegung/?zeige=angebot&anfrage='+encodeURIComponent(x.id)+'">'+(x.angebot?'Angebot ändern':'Angebot schicken (Kilometer, Rabatt)')+'</a>':'')
-      +(x.status==="gebucht"?(x.vertrag&&liesJ("mietixVorgaenge",[]).some(v=>v.nr===x.vertrag&&!v._weg)?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?nr='+encodeURIComponent(x.vertrag)+'&zeige=mappe">Mietvertrag öffnen ›</a>':'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?anfrage='+x.id+'">Mietvertrag anlegen</a>'):'')
+      +(x.status!=="abgesagt"&&x.status!=="gebucht"&&!vorbei(x)&&preisFuer(x)&&!belegtDurch(x).length?'<a class="minik angebot" href="https://barankohler.github.io/mietix-belegung/?zeige=angebot&anfrage='+encodeURIComponent(x.id)+'">'+(x.angebot?'Angebot ändern':'Angebot schicken (Kilometer, Rabatt)')+'</a>':'')
+      +(x.status==="gebucht"?(x.vertrag&&liesJ("mietixVorgaenge",[]).some(v=>v.nr===x.vertrag&&!v._weg)?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?nr='+encodeURIComponent(x.vertrag)+'&zeige=mappe&von=Anfragen">Mietvertrag öffnen ›</a>':'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?anfrage='+encodeURIComponent(x.id)+'&von=Anfragen">Mietvertrag anlegen</a>'):'')
       // Buchen (1.11.2026, Baran: „überall gleich“): dasselbe Formular „Neue Buchung“ wie überall, Name, Auto, Zeitraum und Preis schon drin
-      +(x.status!=="abgesagt"&&x.status!=="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?neu=1&anfrage='+encodeURIComponent(x.id)+'">Buchen ›</a>':'')
-      +(x.anzahlung&&x.anzahlung.am?'<div class="ebez">Anzahlung '+EUR.format(x.anzahlung.betrag)+' erhalten am '+deutsch(x.anzahlung.am)+' ('+(ZAHLART.find(z=>z[0]===x.anzahlung.art)||["","?"])[1]+')</div>':'')
+      +(x.status!=="abgesagt"&&x.status!=="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?neu=1&anfrage='+encodeURIComponent(x.id)+'&von=Anfragen">Buchen ›</a>':'')
+      +(x.anzahlung&&x.anzahlung.am?'<div class="ebez">Anzahlung '+EUR.format(x.anzahlung.betrag)+' erhalten am '+deutsch(x.anzahlung.am)+((ZAHLART.find(z=>z[0]===x.anzahlung.art)||[])[1]?' ('+ZAHLART.find(z=>z[0]===x.anzahlung.art)[1]+')':'')+'</div>':'')
       +(x.status!=="abgesagt"&&!(x.anzahlung&&x.anzahlung.am)&&preisFuer(x)&&!belegtDurch(x).length?(ANZ_OFFEN===x.id?anzahlungForm(x):'<div class="minik anzk" data-anz="1">Anzahlung …</div>'):'')
       +nachfassen(x,wa)
       +'<div class="ereihe zwei">'
@@ -726,7 +737,18 @@ function zeichnen(){
       if(!confirm(anz+"Anfrage von "+(x.name||x.nummer||"ohne Namen")+(x.auto?" ("+x.auto+(x.von?", "+deutsch(x.von):"")+")":"")+" löschen?\n\nSie liegt danach im Papierkorb."+(x.status==="gebucht"?" Das Auto wird im Kalender frei.":"")))return;
       schreiben(lesen().filter(x=>x.id!==id)); zeichnen(); };
   });
+  zeigeAnwenden();
 }
+// ?zeige=ID (Kalender, Geld): Karte anspringen und kurz deutlich markieren, auch wenn Suche oder Filter sie ausblenden würden (06.11.2026)
+var ZEIGE=null;   // var: zeichnen() kann vorher laufen
+function zeigeKarte(id){if(!id)return;ZEIGE={id:String(id),bis:Date.now()+4000,gescrollt:false};
+  if(!$("liste").querySelector('.eintrag[data-id="'+CSS.escape(ZEIGE.id)+'"]')&&ANF_LK.aktiv()&&lesen().some(x=>String(x.id)===ZEIGE.id)){
+    ANF_LK.roh="";ANF_LK.q="";ANF_LK.w={};try{sessionStorage.removeItem("mietixLK:anfragen")}catch(e){}const i=$("anfLK").querySelector("input");if(i)i.value="";zeichnen();return}
+  zeigeAnwenden()}
+function zeigeAnwenden(){if(!ZEIGE||Date.now()>ZEIGE.bis)return;const k=$("liste").querySelector('.eintrag[data-id="'+CSS.escape(ZEIGE.id)+'"]');if(!k)return;
+  k.classList.add("zeigeMark");const z=ZEIGE;
+  setTimeout(()=>{if(ZEIGE!==z)return;k.scrollIntoView({block:"center"});z.gescrollt=true},z.gescrollt?0:60);
+  clearTimeout(zeigeAnwenden._t);zeigeAnwenden._t=setTimeout(()=>{if(ZEIGE!==z)return;ZEIGE=null;document.querySelectorAll(".eintrag.zeigeMark").forEach(e=>e.classList.remove("zeigeMark"))},Math.max(0,z.bis-Date.now()))}
 
 /* Preis-Block (01.11.2026): Vorschlag aus dem Preisrechner, von Hand Getipptes bleibt stehen */
 let A_PREIS_HAND=false,A_KM_HAND=false;
@@ -884,7 +906,7 @@ autosFuellen(); zeichnen();
   if(q.get("auto")){const a=q.get("auto");if(![...$("auto").options].some(o=>o.value===a)){const o=document.createElement("option");o.textContent=a;$("auto").appendChild(o)}$("auto").value=a}
   if(q.get("von"))$("von").value=q.get("von");if(q.get("bis"))$("bis").value=q.get("bis");if(q.get("vonU"))$("vonU").value=q.get("vonU");if(q.get("bisU"))$("bisU").value=q.get("bisU");
   if(q.get("auto")||q.get("von")){formularAuf("name");if(typeof entwurfMerken==="function")entwurfMerken()}
-  if(q.get("zeige")){SICHT="alle";[...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="alle"));zeichnen()}})();
+  if(q.get("zeige")){SICHT="alle";[...$("tage").querySelectorAll(".tag")].forEach(t=>t.classList.toggle("an",t.dataset.w==="alle"));zeichnen();zeigeKarte(q.get("zeige"))}})();
 try{
   fetch("https://barankohler.github.io/mietix-preise/preise.json",{cache:"no-store"})
     .then(r=>r.ok?r.json():null)
@@ -1547,8 +1569,8 @@ zeigen();abgleichen();auslagernBald();
     "html body header .mxStart,html body .topbar .mxStart{float:none!important;margin:0 10px 0 0!important;border:0!important;padding:5px 12px 5px 9px!important;background:#E9E9EE!important;border-radius:10px!important;color:#C4161C!important;opacity:1!important;font-size:16px!important;font-weight:600!important;gap:3px!important;line-height:1.2!important;min-height:44px!important;box-sizing:border-box;display:inline-flex!important;align-items:center!important}html body .mxStart b{font-size:20px!important;font-weight:400!important;line-height:16px!important;margin-top:-2px!important}"+
     /* PC und Mac (1.11.2026, Baran: auf allen Geräten gleich): Kopfzeile und Inhalt in einer 680-px-Spalte in der Mitte.
        Muss ganz am Ende stehen: header{padding-left:16px!important} weiter oben (und look.py davor im head) würde sonst gewinnen */
-    (istStart||art==="kalender"||art==="schaeden"?"":"@media(min-width:760px){header,.topbar{padding-left:max(16px,calc((100% - 680px)/2))!important;padding-right:max(16px,calc((100% - 680px)/2))!important}"+
-      "main{max-width:680px!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box;padding-left:16px!important;padding-right:16px!important}header .plus{right:max(16px,calc((100% - 680px)/2))!important}}");
+    (istStart||art==="kalender"||art==="schaeden"?"":"@media(min-width:760px){header,.topbar{padding-left:max(16px,calc((100% - 680px)/2 + 16px))!important;padding-right:max(16px,calc((100% - 680px)/2 + 16px))!important}"+
+      "main{max-width:680px!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box;padding-left:16px!important;padding-right:16px!important}header .plus{right:max(16px,calc((100% - 680px)/2 + 16px))!important}}");
   document.head.appendChild(st);
 
   // ‹ Start und Symbol in der Kopfzeile
