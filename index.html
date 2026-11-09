@@ -39,7 +39,7 @@ button{width:100%;padding:17px;font-weight:800;font-size:17px;font-family:inheri
 button.hell{background:#fff;color:var(--dunkel);border:1px solid var(--rand)}
 .tage{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
 /* Zeitraum-Filter unter der Übersicht (31.10.2026, Baran) */
-.zeitraumF{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:-6px 0 14px;background:#fff;border-radius:14px;padding:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 6px 16px rgba(0,0,0,.045)}
+.zeitraumF{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:-6px 0 14px;background:#fff;border-radius:14px;padding:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 6px 16px rgba(0,0,0,.045)}
 .zeitraumF label{margin:0!important;display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--grau);min-width:0}
 .zeitraumF input{width:100%;min-width:0;font:inherit;font-size:15px;font-weight:700;color:#1C1C1E;border:1px solid #E5E5EA;border-radius:10px;padding:8px;background:#F7F7F9}
 .tag{background:#fff;border-radius:14px;padding:13px 4px;text-align:center;font-weight:800;
@@ -252,6 +252,11 @@ input[type=date],input[type=time]{min-width:0;max-width:100%}
 .lkZeile a{color:#C4161C;font-weight:700;text-decoration:none;white-space:nowrap;cursor:pointer}
 .lkRad{background:#F7F7F9;border-radius:14px;overflow:hidden}.lkRad div{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:.5px solid #E5E5EA;cursor:pointer}.lkRad div:first-child{border-top:0}
 .lkRad div span{flex:1;min-width:0;font-size:16px;font-weight:600}.lkRad div u{flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:2px solid #C7C7CC;box-sizing:border-box}.lkRad div.an u{border:7px solid #C4161C}
+.lkVb{margin-top:14px;display:grid;gap:10px}.mxKopf+.lkVb{margin-top:0}.lkVbZ{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:10px}.lkVbZ>div{min-width:0}
+.lkVbZ label{display:block;margin:0 0 5px 3px!important;font-size:14px;font-weight:700;color:#6E6E73}
+.lkVbZ input{display:block;width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box;height:48px;margin:0!important;padding:0 12px!important;border:0!important;border-radius:12px;background:#F2F2F7;font-family:inherit;font-size:16px;font-weight:600;color:#1C1C1E;text-align:left;-webkit-appearance:none;appearance:none}
+.lkVbZ input::-webkit-date-and-time-value{text-align:left}
+.lkVbF{color:#C4161C;font-size:14px;font-weight:700;margin:8px 3px 0}.lkVbF:empty{display:none}
 .lkFertig{display:block;width:100%;margin-top:14px;border:0;border-radius:14px;padding:14px;background:#C4161C;color:#fff;font-size:17px;font-weight:700;font-family:inherit;cursor:pointer}
 </style><style>
 /* Preis-Block, überall gleich (01.11.2026) */
@@ -296,19 +301,27 @@ input[type=date],input[type=time]{min-width:0;max-width:100%}
 (function(){if(window.mxListenkopf)return;
   const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
   const norm=t=>String(t==null?"":t).toLowerCase().replace(/\s+/g," ").trim();
-  function blatt(titel,werte,wert,fertig){let f=document.getElementById("lkFenster");
+  const freiTeile=w=>{const t=String(w||"").split("|");return t[0]==="frei"?{vd:t[1]||"",vu:t[2]||"10:00",bd:t[3]||"",bu:t[4]||"10:00"}:null};
+  const freiText=w=>{const p=freiTeile(w),j=new Date().getFullYear(),k=x=>{const t=x.split("-");return Number(t[2])+"."+Number(t[1])+"."+(Number(t[0])===j?"":t[0].slice(2))};return p.vd&&p.bd?k(p.vd)+" bis "+k(p.bd):p.vd?"ab "+k(p.vd):"bis "+k(p.bd)};
+  const vbZeile=(t,d,u)=>'<div class="lkVbZ"><div><label for="'+d+'">'+t+'</label><input type="date" id="'+d+'"></div><div><label for="'+u+'">Uhr</label><input type="time" id="'+u+'" value="10:00"></div></div>';
+  function blatt(titel,werte,wert,fertig,frei){let f=document.getElementById("lkFenster");
     if(!f){f=document.createElement("div");f.className="mxFenster";f.id="lkFenster";f.setAttribute("role","dialog");document.body.appendChild(f)}
     let w=wert;f.setAttribute("aria-label",titel);
-    f.innerHTML='<div class="mxKopf"><h3>'+esc(titel)+'</h3><button class="mxZu" type="button" aria-label="Schließen">✕</button></div><div class="lkRad">'+
-      werte.map(([v,t],i)=>'<div data-i="'+i+'" class="'+(v===w?"an":"")+'"><span>'+esc(t)+'</span><u></u></div>').join("")+'</div><button type="button" class="lkFertig">Fertig</button>';
-    f.querySelectorAll("[data-i]").forEach(z=>z.onclick=()=>{w=werte[+z.dataset.i][0];f.querySelectorAll("[data-i]").forEach(y=>y.classList.toggle("an",y===z))});
-    f.querySelector(".lkFertig").onclick=()=>{window.mxZu();fertig(w)};window.mxAuf("lkFenster")}
+    f.innerHTML='<div class="mxKopf"><h3>'+esc(titel)+'</h3><button class="mxZu" type="button" aria-label="Schließen">✕</button></div>'+(frei==="nur"?"":'<div class="lkRad">'+
+      werte.map(([v,t],i)=>'<div data-i="'+i+'" class="'+(v===w?"an":"")+'"><span>'+esc(t)+'</span><u></u></div>').join("")+'</div>')+(frei?'<div class="lkVb">'+vbZeile("von","lkVonD","lkVonU")+vbZeile("bis","lkBisD","lkBisU")+'</div><div class="lkVbF" role="alert"></div>':"")+'<button type="button" class="lkFertig">Fertig</button>';
+    const fld=i=>document.getElementById(i),feh=f.querySelector(".lkVbF"),rad=z=>f.querySelectorAll("[data-i]").forEach(y=>y.classList.toggle("an",y===z));
+    f.querySelectorAll("[data-i]").forEach(z=>z.onclick=()=>{w=werte[+z.dataset.i][0];rad(z);if(frei){fld("lkVonD").value="";fld("lkBisD").value="";fld("lkVonU").value="10:00";fld("lkBisU").value="10:00";feh.textContent=""}});
+    if(frei){const p=freiTeile(w);if(p){fld("lkVonD").value=p.vd;fld("lkVonU").value=p.vu;fld("lkBisD").value=p.bd;fld("lkBisU").value=p.bu}
+      const neu=()=>{feh.textContent="";const vd=fld("lkVonD").value,bd=fld("lkBisD").value;if(vd||bd){w=["frei",vd,fld("lkVonU").value||"10:00",bd,fld("lkBisU").value||"10:00"].join("|");rad(null)}else if(freiTeile(w)){w="";rad(f.querySelector('[data-i="0"]'))}};
+      ["lkVonD","lkVonU","lkBisD","lkBisU"].forEach(i=>{fld(i).addEventListener("input",neu);fld(i).addEventListener("change",neu)})}
+    f.querySelector(".lkFertig").onclick=()=>{const p=frei&&freiTeile(w);if(p&&p.vd&&p.bd&&p.vd+"T"+p.vu>p.bd+"T"+p.bu){feh.textContent="„bis“ liegt vor „von“. Bitte Datum oder Uhrzeit ändern.";return}window.mxZu();fertig(w)};window.mxAuf("lkFenster")}
   window.mxListenkopf=function(hostId,schluessel,o){const K="mietixLK:"+schluessel;let st={};try{st=JSON.parse(sessionStorage.getItem(K)||"{}")}catch(e){}
     const LK={q:norm(st.q),w:Object.assign({},st.w||{}),roh:st.q||""};let bau=false,zeileT="";
+    (o.felder||[]).forEach(f=>{if(f.frei==="nur"&&LK.w[f.k]&&!freiTeile(LK.w[f.k]))delete LK.w[f.k]});
     const merke=()=>{try{sessionStorage.setItem(K,JSON.stringify({q:LK.roh,w:LK.w}))}catch(e){}};
     const host=()=>document.getElementById(hostId);
     const felderZeigen=()=>{(o.felder||[]).forEach(f=>{const el=host().querySelector('[data-lk="'+f.k+'"]');if(!el)return;const v=LK.w[f.k]||"",p=(f.werte()||[]).find(x=>x[0]===v);
-      el.querySelector("b").textContent=v?(p?p[1]:v):f.alle;el.classList.toggle("gew",!!v)})};
+      el.querySelector("b").textContent=v?(freiTeile(v)?freiText(v):p?p[1]:v):f.alle;el.classList.toggle("gew",!!v)})};
     const zeileZeigen=()=>{const z=host().querySelector(".lkZeile");if(!z)return;z.innerHTML='<span>'+esc(zeileT)+'</span>'+(LK.aktiv()?'<a role="button" tabindex="0">Filter zurücksetzen</a>':"");
       const a=z.querySelector("a");if(a)a.onclick=()=>{LK.roh="";LK.q="";LK.w={};merke();const i=host().querySelector("input");if(i)i.value="";kreuz();felderZeigen();o.neu()}};
     const kreuz=()=>{const k=host().querySelector(".lkSuche button");if(k)k.style.display=LK.roh?"":"none"};
@@ -319,12 +332,17 @@ input[type=date],input[type=time]{min-width:0;max-width:100%}
         ((o.felder||[]).length?'<div class="lkFelder">'+o.felder.map(f=>'<div class="lkFeld" role="button" tabindex="0" data-lk="'+f.k+'"><span><small>'+esc(f.t)+'</small><b></b></span><em>›</em></div>').join("")+'</div>':"")+'<div class="lkZeile"></div></div>';
       const i=h.querySelector("input");i.value=LK.roh;i.addEventListener("input",()=>{LK.roh=i.value;LK.q=norm(i.value);merke();kreuz();o.neu()});
       h.querySelector(".lkSuche button").onclick=e=>{e.preventDefault();i.value="";LK.roh="";LK.q="";merke();kreuz();o.neu();i.focus()};kreuz();
-      (o.felder||[]).forEach(f=>{h.querySelector('[data-lk="'+f.k+'"]').onclick=()=>{blatt(f.t,[["",f.alle]].concat(f.werte()||[]),LK.w[f.k]||"",w=>{if(w)LK.w[f.k]=w;else delete LK.w[f.k];merke();felderZeigen();o.neu()})}})}
+      (o.felder||[]).forEach(f=>{h.querySelector('[data-lk="'+f.k+'"]').onclick=()=>{blatt(f.t,[["",f.alle]].concat(f.werte()||[]),LK.w[f.k]||"",w=>{if(w)LK.w[f.k]=w;else delete LK.w[f.k];merke();felderZeigen();o.neu()},f.frei)}})}
       felderZeigen();zeileZeigen();return LK};
     return LK};
   const tag=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   window.mxListenkopf.zeit=[["heute","Heute"],["woche","Diese Woche"],["naechsteW","Nächste Woche"],["monat","Dieser Monat"],["vormonat","Letzter Monat"],["naechsterM","Nächster Monat"],["jahr","Dieses Jahr"]];
-  window.mxListenkopf.spanne=function(w){const n=new Date(),j=n.getFullYear(),m=n.getMonth(),mo=new Date(j,m,n.getDate()-((n.getDay()+6)%7));
+  window.mxListenkopf.freiText=freiText;
+  /* Liegt eine Miete im Zeitraum? Bei von/bis mit Uhrzeit minutengenau, bei den festen Knöpfen wie bisher nach Tagen */
+  window.mxListenkopf.ueberlappt=function(w,vd,vu,bd,bu){const s=window.mxListenkopf.spanne(w);if(!s)return true;
+    if(freiTeile(w)){const an=vd?vd+"T"+(vu||"00:00"):"",en=(bd||vd)?(bd||vd)+"T"+(bu||"23:59"):"";return an<=s[1]&&en>=s[0]}
+    return String(vd||"")<=s[1]&&String(bd||vd||"")>=s[0]};
+  window.mxListenkopf.spanne=function(w){const p=freiTeile(w);if(p)return[p.vd?p.vd+"T"+p.vu:"0000-01-01T00:00",p.bd?p.bd+"T"+p.bu:"9999-12-31T23:59"];const n=new Date(),j=n.getFullYear(),m=n.getMonth(),mo=new Date(j,m,n.getDate()-((n.getDay()+6)%7));
     const pl=(d,x)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+x);
     return{heute:[tag(n),tag(n)],woche:[tag(mo),tag(pl(mo,6))],naechsteW:[tag(pl(mo,7)),tag(pl(mo,13))],monat:[tag(new Date(j,m,1)),tag(new Date(j,m+1,0))],vormonat:[tag(new Date(j,m-1,1)),tag(new Date(j,m,0))],naechsterM:[tag(new Date(j,m+1,1)),tag(new Date(j,m+2,0))],jahr:[j+"-01-01",j+"-12-31"]}[w]||null};
 })();
@@ -374,8 +392,9 @@ input[type=date],input[type=time]{min-width:0;max-width:100%}
     <div class="tag" data-w="zeitraum">Zeitraum</div>
   </div>
   <div class="zeitraumF versteckt" id="zeitraumF">
-    <label>von<input type="date" id="fVon"></label>
-    <label>bis<input type="date" id="fBis"></label>
+    <div class="lkVbZ"><div><label for="fVon">von</label><input type="date" id="fVon"></div><div><label for="fVonU">Uhr</label><input type="time" id="fVonU" value="00:00"></div></div>
+    <div class="lkVbZ"><div><label for="fBis">bis</label><input type="date" id="fBis"></div><div><label for="fBisU">Uhr</label><input type="time" id="fBisU" value="23:59"></div></div>
+    <div class="lkVbF" id="fZrF" role="alert"></div>
   </div>
   <div id="anfLK"></div>
   <div class="zahlen" id="zahlen"></div>
@@ -493,12 +512,15 @@ function angebotsText(x,r){
   if(r.dauer>1){z.push("","Gilt nur für den kompletten Zeitraum "+zeitraum+" am Stück. Für einzelne Tage daraus gilt der reguläre Tagespreis.")}
   z.push("","Soll ich den Wagen für Sie reservieren?");return z.join("\n")}   // ohne Anrede und Gruß (Baran 05.11.2026)
 // Belegt, wenn ein Mietvertrag (nicht zurück) oder eine andere gebuchte Anfrage dasselbe Auto im Zeitraum hat. Rückgabetag zählt nicht mit.
+const jetztZ=()=>{const j=new Date();return heuteISO()+"T"+String(j.getHours()).padStart(2,"0")+":"+String(j.getMinutes()).padStart(2,"0")};
+// Überfällig blockt kein Angebot, der Hinweis bleibt (Baran 08.11.2026)
+const belegtFest=x=>belegtDurch(x).filter(t=>!t.ueber);
 function belegtDurch(x){
   if(!x.auto||!x.von||!x.bis)return[];
   const ueber=(v1,b1,v2,b2)=>v1<b2&&b1>v2,t=[];
   let vorg=[];try{vorg=JSON.parse(localStorage.getItem("mietixVorgaenge")||"[]")}catch(e){}
   const nG=s=>String(s||"").toLowerCase().replace(/\s+/g,"");   // der eigene Mietvertrag zählt nicht als belegt (30.10.2026)
-  vorg.forEach(v=>{if((x.vertrag&&v.nr===x.vertrag)||(x.name&&nG(v.name)===nG(x.name)))return;if(v.auto===x.auto&&v.status!=="zurück"&&v.vonD&&v.bisD&&ueber(x.von,x.bis,v.vonD,v.ueb&&v.bisD<=heuteISO()?new Date(Date.now()+864e5).toISOString().slice(0,10):v.bisD))t.push({name:v.name,bis:v.bisD,bisU:v.bisU})});   // überfällig bleibt belegt
+  vorg.forEach(v=>{if((x.vertrag&&v.nr===x.vertrag)||(x.name&&nG(v.name)===nG(x.name)))return;if(v.auto===x.auto&&v.status!=="zurück"&&v.vonD&&v.bisD&&ueber(x.von,x.bis,v.vonD,v.ueb&&v.bisD<=heuteISO()?new Date(Date.now()+864e5).toISOString().slice(0,10):v.bisD))t.push({name:v.name,bis:v.bisD,bisU:v.bisU,ueber:!!(v.ueb&&(v.bisD+"T"+(v.bisU||"10:00"))<jetztZ())})});
   lesen().forEach(a=>{if(a.id!==x.id&&a.status==="gebucht"&&a.auto===x.auto&&a.von&&a.bis&&ueber(x.von,x.bis,a.von,a.bis))t.push({name:a.name||"Anfrage",bis:a.bis,bisU:a.bisU||(a.angebot||{}).bisU})});
   // Sperren aus dem Kalender zählen auch (Werkstatt, privat), wie im Mietvertrag (30.10.2026). Letzter Tag ist frei, erster Tag zählt ab 00:00 Uhr, Regel wie im Kalender (D17, 05.11.2026)
   let sp=[];try{sp=JSON.parse(localStorage.getItem("mietixSperren")||"[]")}catch(e){}
@@ -513,10 +535,11 @@ function anzWartet(x){const w=x.status==="angebot"&&x.anzahlungAngefordert;if(!w
 function preisZeile0(x){
   if(!x.auto||!x.von||!x.bis)return x.auto?'<div class="epreis"><i>Datum fehlt für Preis und Verfügbarkeit</i></div>':"";
   if(vorbei(x))return'<div class="epreis belegt">Zeitraum vorbei'+(x.bis&&x.bis>=heuteISO()?" (Beginn "+deutsch(x.von)+")":"")+'. Für ein Angebot neues Datum mit dem Kunden absprechen.</div>';
-  const b=belegtDurch(x),r=preisFuer(x);
+  const b0=belegtDurch(x),b=b0.filter(t=>!t.ueber),u=b0.filter(t=>t.ueber),r=preisFuer(x);
+  const uH=u.length?'<div class="epreis" style="color:#9A6400;font-weight:800">Seit '+deutsch(u[0].bis).slice(0,6)+' überfällig, '+esc(u[0].name||"")+', noch nicht zurück</div>':"";
   if(b.length)return'<div class="epreis belegt">'+(b.some(t=>!t.sperre)?"Belegt: ":"")+esc(b.map(t=>t.sperre?t.name:t.name+" bis "+deutsch(t.bis)+(t.bisU?", "+t.bisU+" Uhr":"")).join(", "))+'</div>';
   if(!r)return'<div class="epreis"><i>'+(D?(D.cars.some(c=>(c.anzeige||c.n)===x.auto)?"Zeitraum prüfen, kein Preis berechenbar":"Kein Preis hinterlegt"):"Preis wird geladen …")+'</i></div>';
-  return'<div class="epreis frei">Frei. '+EUR.format(r.total)+' für '+r.dauer+(r.dauer===1?" Tag":" Tage")+(r.abgemacht?' <i>(abgemachter Preis'+(x.angebot.kmExtra?', +'+x.angebot.kmExtra+' Extra-km':'')+')</i>':(r.proz?' <i>(mit '+r.proz+' % Mengenrabatt)</i>':''))+'</div>'}
+  return uH+'<div class="epreis frei">'+(u.length?"":"Frei. ")+EUR.format(r.total)+' für '+r.dauer+(r.dauer===1?" Tag":" Tage")+(r.abgemacht?' <i>(abgemachter Preis'+(x.angebot.kmExtra?', +'+x.angebot.kmExtra+' Extra-km':'')+')</i>':(r.proz?' <i>(mit '+r.proz+' % Mengenrabatt)</i>':''))+'</div>'}
 
 /* Anzahlung direkt an der Anfrage (Paket B, Teil 2). Text Wort für Wort von der Seite Anzahlung ("Ihre Reservierung"). */
 const QUOTEN=[20,30,50,100],ZAHLART=[["bar","Bar"],["ec","EC-Karte"],["kredit","Kreditkarte"],["ueberweisung","Überweisung"]];
@@ -633,7 +656,7 @@ function nachfassen(x,wa){if(x.status!=="angebot"||!wa)return"";
   const seitAb=String((x.angebot&&x.angebot.am)||x.tag||"").slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(seitAb))return"";   // ohne Datum keine Zeile (06.11.2026, sonst „seit NaN Tagen“)
   const seit=Math.round((new Date(heuteISO())-new Date(seitAb))/864e5);if(!(seit>=2))return"";if(vorbei(x))return"";
   // Auto inzwischen vergeben: kein „halte ich frei“, sondern ein anderes Fahrzeug anbieten (06.11.2026)
-  const bel=belegtDurch(x).length>0,zr=(x.von?" vom "+deutsch(x.von)+(x.bis?" bis "+deutsch(x.bis):""):"");
+  const bel=belegtFest(x).length>0,zr=(x.von?" vom "+deutsch(x.von)+(x.bis?" bis "+deutsch(x.bis):""):"");
   const t=bel?"Der "+(x.auto||"Wagen")+" ist"+zr+" leider inzwischen vergeben. Soll ich Ihnen für den Zeitraum ein anderes Fahrzeug anbieten?"
     :"Ich wollte kurz nachfragen, ob unser Angebot"+(x.auto?" für den "+x.auto:"")+zr+" noch passt. Gerne halte ich Ihnen das Fahrzeug frei.";
   return'<div class="nkBlock" data-nf="'+x.id+'" data-nftel="'+(wa?"+"+wa:"")+'" data-nftext="'+encodeURIComponent(t)+'"><span class="nkLabel">'+(bel?"Anderes Auto anbieten":"Nachfragen")+'<i>seit '+seit+' Tagen keine Antwort'+(bel?", Auto vergeben":"")+'</i></span>'+nkPaar()+'</div>'}
@@ -641,7 +664,7 @@ function gefiltert(){
   const a=lesen();
   if(SICHT==="heute")  return a.filter(x=>x.tag===heuteISO()||(x.tag===gesternISO()&&x.status==="offen"));   // offene von gestern bleiben sichtbar (Liste Punkt 19)
   if(SICHT==="gestern")return a.filter(x=>x.tag===gesternISO());
-  if(SICHT==="zeitraum"){const v=$("fVon").value,b=$("fBis").value;return a.filter(x=>(!v||x.tag>=v)&&(!b||x.tag<=b))}
+  if(SICHT==="zeitraum"){const v=$("fVon").value,b=$("fBis").value,vu=$("fVonU").value||"00:00",bu=$("fBisU").value||"23:59";return a.filter(x=>(!v||x.tag+"T"+(x.uhr||"23:59")>=v+"T"+vu)&&(!b||x.tag+"T"+(x.uhr||"00:00")<=b+"T"+bu))}
   return a;
 }
 
@@ -682,12 +705,12 @@ function zeichnen(){
         +STATUS.map(s=>'<div class="minik '+(x.status===s[0]?"an":"")+'" data-s="'+s[0]+'">'+s[1]+'</div>').join("")
       +'</div>'
       // Gebucht: ein Klick öffnet den Mietvertrag schon ausgefüllt (gleicher Speicher auf barankohler.github.io)
-      +(x.status!=="abgesagt"&&x.status!=="gebucht"&&!vorbei(x)&&preisFuer(x)&&!belegtDurch(x).length?'<a class="minik angebot" href="https://barankohler.github.io/mietix-belegung/?zeige=angebot&anfrage='+encodeURIComponent(x.id)+'">'+(x.angebot?'Angebot ändern':'Angebot schicken (Kilometer, Rabatt)')+'</a>':'')
+      +(x.status!=="abgesagt"&&x.status!=="gebucht"&&!vorbei(x)&&preisFuer(x)&&!belegtFest(x).length?'<a class="minik angebot" href="https://barankohler.github.io/mietix-belegung/?zeige=angebot&anfrage='+encodeURIComponent(x.id)+'">'+(x.angebot?'Angebot ändern':'Angebot schicken (Kilometer, Rabatt)')+'</a>':'')
       +(x.status==="gebucht"?(x.vertrag&&liesJ("mietixVorgaenge",[]).some(v=>v.nr===x.vertrag&&!v._weg)?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?nr='+encodeURIComponent(x.vertrag)+'&zeige=mappe&von=Anfragen">Mietvertrag öffnen ›</a>':'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?anfrage='+encodeURIComponent(x.id)+'&von=Anfragen">Mietvertrag anlegen</a>'):'')
       // Buchen (1.11.2026, Baran: „überall gleich“): dasselbe Formular „Neue Buchung“ wie überall, Name, Auto, Zeitraum und Preis schon drin
       +(x.status!=="abgesagt"&&x.status!=="gebucht"?'<a class="minik vertragk" href="https://barankohler.github.io/mietix-vertrag/?neu=1&anfrage='+encodeURIComponent(x.id)+'&von=Anfragen">Buchen ›</a>':'')
       +(x.anzahlung&&x.anzahlung.am?'<div class="ebez">Anzahlung '+EUR.format(x.anzahlung.betrag)+' erhalten am '+deutsch(x.anzahlung.am)+((ZAHLART.find(z=>z[0]===x.anzahlung.art)||[])[1]?' ('+ZAHLART.find(z=>z[0]===x.anzahlung.art)[1]+')':'')+'</div>':'')
-      +(x.status!=="abgesagt"&&!(x.anzahlung&&x.anzahlung.am)&&preisFuer(x)&&!belegtDurch(x).length?(ANZ_OFFEN===x.id?anzahlungForm(x):'<div class="minik anzk" data-anz="1">Anzahlung …</div>'):'')
+      +(x.status!=="abgesagt"&&!(x.anzahlung&&x.anzahlung.am)&&preisFuer(x)&&!belegtFest(x).length?(ANZ_OFFEN===x.id?anzahlungForm(x):'<div class="minik anzk" data-anz="1">Anzahlung …</div>'):'')
       +nachfassen(x,wa)
       +'<div class="ereihe zwei">'
         +(wa?'<a class="minik wa waRand" href="https://wa.me/'+wa+'" target="_blank">WhatsApp</a>':'<span></span>')
@@ -850,7 +873,7 @@ $("name").addEventListener("input",()=>{const w=$("weiterAng");if(w)w.innerHTML=
     if(SICHT==="zeitraum"&&!$("fVon").value){$("fVon").value=heuteISO().slice(0,8)+"01";$("fBis").value=heuteISO()}
     zeichnen(); };
 });
-["fVon","fBis"].forEach(id=>$(id).addEventListener("change",zeichnen));
+["fVon","fBis","fVonU","fBisU"].forEach(id=>$(id).addEventListener("change",()=>{const v=$("fVon").value,b=$("fBis").value;$("fZrF").textContent=v&&b&&v+"T"+($("fVonU").value||"00:00")>b+"T"+($("fBisU").value||"23:59")?"„bis“ liegt vor „von“. Bitte Datum oder Uhrzeit ändern.":"";zeichnen()}));
 
 function tagesText(){
   const liste=gefiltert().slice().reverse();
