@@ -452,9 +452,10 @@ function nurGeaenderte(schl){const hin=$("eHin"),jetzt=werteVon(schl);if(!jetzt)
   return true}
 function speichern(){if(!pruefe())return;const w=id=>$(id)?Math.round(zahl($(id).value)||0):null,t=id=>$(id)?$(id).value:"";
   const schl=OFFEN&&OFFEN.schl;if(!schl)return;const jetzt=new Date().toISOString();
+  const fw0=feldWerte();   /* was in diesem Fenster getippt wurde, vor dem Nachziehen fremder Änderungen (12.11.2026, Prüfung) */
   if(!nurGeaenderte(schl))return;
   // Jede Geldänderung fragt „Sicher?“ mit alt und neu (11.11.2026 nachts, Prüfung B A5)
-  {const fw=feldWerte(),orig=OFFEN.orig||{},zeig=(id,x)=>/Am$/.test(id)?(istTag(x)?deJ(x):"leer"):id==="eGrund"?(String(x||"").trim()||"leer"):eur(Math.round(zahl(x)||0));
+  {const fw=fw0,orig=OFFEN.orig||{},zeig=(id,x)=>/Am$/.test(id)?(istTag(x)?deJ(x):"leer"):id==="eGrund"?(String(x||"").trim()||"leer"):eur(Math.round(zahl(x)||0));
     const z=Object.keys(fw).filter(id=>fNorm(id,fw[id])!==fNorm(id,orig[id])).map(id=>fName(id)+": "+zeig(id,orig[id])+" auf "+zeig(id,fw[id]));
     if(z.length){const x=schl.startsWith("a:")?lies("mietixAnfragen",[]).find(y=>y&&y.id===schl.slice(2)):lies("mietixVorgaenge",[]).find(y=>y&&y.nr===schl.slice(2));
       const tzOffen=!schl.startsWith("a:")&&x&&$("eRestAm")&&t("eRestAm")&&!istTag(((x.zahlung||{}).rest||{}).am)?(x.teilzahlungen||[]).filter(q=>q&&+q.betrag>0&&!q.verrechnet).reduce((q,y)=>q+Math.round(+y.betrag||0),0):0;
@@ -879,7 +880,7 @@ function angebotsText(x,r){
   const kmAb=r.abgemacht&&x.angebot?(x.angebot.freikm!=null?x.angebot.freikm:x.angebot.kmInkl):null,kmGesamt=kmAb!=null?+kmAb||0:D.freiKm*r.dauer;   // abgemachte km aus dem Kalender (1.11.2026)
   const zeitraum=wtKurz(r.von)+" "+kurz(r.von)+" bis "+wtKurz(r.bis)+" "+lang(r.bis)+", "+r.dauer+(r.dauer===1?" Tag":" Tage");
   const vn=String(x.name||"").trim().split(/\s+/)[0];
-  const z=["*Ihr Angebot*","","- Fahrzeug: "+r.c.n,"- Zeitraum: "+zeitraum,"- Kilometer: "+kmGesamt.toLocaleString("de-DE")+" km inklusive",
+  const z=["*Ihr Angebot*","","- Fahrzeug: "+(r.c.anzeige||r.c.n),"- Zeitraum: "+zeitraum,"- Kilometer: "+kmGesamt.toLocaleString("de-DE")+" km inklusive",
     "- Zusatzfahrer: keine","- Kaution: "+(r.c.kaution?EUR0.format(r.c.kaution)+", kommt nach Rückgabe komplett zurück":"auf Anfrage"),""];
   if(r.proz>0){z.push("*Ihr Rabatt: "+r.proz+" %*","Statt "+EUR.format(r.liste)+" nur "+EUR.format(r.miete),"Sie sparen "+EUR.format(r.ersparnis),"")}
   if(r.pkKm)z.push("Dazu Kilometerpaket +"+r.pkKm.toLocaleString("de-DE")+" km: "+EUR.format(r.pkPr),"");
@@ -894,11 +895,12 @@ const belegtFest=x=>belegtDurch(x).filter(t=>!t.ueber);
 const belegtFrage=x=>belegtDurch(x).filter(t=>!t.ueber||x.von<=heuteISO());
 function belegtDurch(x){
   if(!x.auto||!x.von||!x.bis)return[];
-  const ueber=(v1,b1,v2,b2)=>v1<b2&&b1>v2,t=[];
+  /* Mit Uhrzeit wie Angebot und Kalender (12.11.2026, Prüfung: Rückgabe um 16 Uhr, Anfrage ab 10 Uhr galt als frei) */
+  const Z=(d,u)=>d+"T"+(u||"10:00"),ueber=(v1,u1,b1,ub1,v2,u2,b2,ub2)=>Z(v1,u1)<Z(b2,ub2)&&Z(b1,ub1)>Z(v2,u2),t=[];
   let vorg=[];try{vorg=JSON.parse(localStorage.getItem("mietixVorgaenge")||"[]")}catch(e){}
   const nG=s=>String(s||"").toLowerCase().replace(/\s+/g,"");   // der eigene Mietvertrag zählt nicht als belegt (30.10.2026)
-  vorg.forEach(v=>{if((x.vertrag&&v.nr===x.vertrag)||(x.name&&nG(v.name)===nG(x.name)))return;const spaet=!!(v.ueb&&v.bisD&&(v.bisD+"T"+(v.bisU||"10:00"))<jetztZ());if(v.auto===x.auto&&v.status!=="zurück"&&v.vonD&&v.bisD&&ueber(x.von,x.bis,v.vonD,spaet?"9999-12-31":v.ueb&&v.bisD<=heuteISO()?new Date(Date.now()+864e5).toISOString().slice(0,10):v.bisD))t.push({name:v.name,bis:v.bisD,bisU:v.bisU,ueber:spaet})});   // überfällig gilt für jeden späteren Zeitraum, wie auf Kunden (09.11.2026)
-  lesen().forEach(a=>{if(a.id!==x.id&&a.status==="gebucht"&&a.auto===x.auto&&a.von&&a.bis&&ueber(x.von,x.bis,a.von,a.bis))t.push({name:a.name||"Anfrage",bis:a.bis,bisU:a.bisU||(a.angebot||{}).bisU})});
+  vorg.forEach(v=>{if((x.vertrag&&v.nr===x.vertrag)||(x.name&&nG(v.name)===nG(x.name)))return;const spaet=!!(v.ueb&&v.bisD&&(v.bisD+"T"+(v.bisU||"10:00"))<jetztZ());if(v.auto===x.auto&&v.status!=="zurück"&&v.vonD&&v.bisD&&ueber(x.von,x.vonU,x.bis,x.bisU,v.vonD,v.vonU,spaet?"9999-12-31":v.ueb&&v.bisD<=heuteISO()?new Date(Date.now()+864e5).toISOString().slice(0,10):v.bisD,spaet||(v.ueb&&v.bisD<=heuteISO())?"00:00":v.bisU))t.push({name:v.name,bis:v.bisD,bisU:v.bisU,ueber:spaet})});   // überfällig gilt für jeden späteren Zeitraum, wie auf Kunden (09.11.2026)
+  lesen().forEach(a=>{if(a.id!==x.id&&a.status==="gebucht"&&a.auto===x.auto&&a.von&&a.bis&&ueber(x.von,x.vonU,x.bis,x.bisU,a.von,a.vonU||(a.angebot||{}).vonU,a.bis,a.bisU||(a.angebot||{}).bisU))t.push({name:a.name||"Anfrage",bis:a.bis,bisU:a.bisU||(a.angebot||{}).bisU})});
   // Sperren aus dem Kalender zählen auch (Werkstatt, privat), wie im Mietvertrag (30.10.2026). Letzter Tag ist frei, erster Tag zählt ab 00:00 Uhr, Regel wie im Kalender (D17, 05.11.2026)
   let sp=[];try{sp=JSON.parse(localStorage.getItem("mietixSperren")||"[]")}catch(e){}
   sp.forEach(z=>{if(!z._weg&&z.auto===x.auto&&z.von&&z.bis&&x.von<z.bis&&x.bis>=z.von)t.push({name:z.auto+" selbst gesperrt bis "+deutsch(z.bis).slice(0,6)+(z.grund?": "+z.grund:""),bis:z.bis,sperre:true})});
@@ -913,7 +915,7 @@ function anzWartet(x){const w=x.status==="angebot"&&x.anzahlungAngefordert;if(!w
 // Ohne Name und Mietvertrag gefragt, sonst gälte ein Auto, das derselbe Kunde gerade fährt, als frei; ein noch nicht zurückgegebenes Auto gilt nicht als frei
 const kurzAuto=n=>String(n).replace(/^(Audi|BMW|Mercedes-Benz|Mercedes|VW)\s+/,"").replace(/ Chauffeur-Paket| Limousine| performance| Clubsport/g,"").replace(" 2.0 Diesel"," Diesel");
 function freiWaeren(x){if(!D||x.status==="abgesagt"||x.status==="gebucht")return"";
-  const f=AUTOS.filter(a=>a!==x.auto&&preisFuer({auto:a,von:x.von,bis:x.bis})&&!belegtDurch({id:x.id,auto:a,von:x.von,bis:x.bis}).length);if(!f.length)return"";
+  const f=AUTOS.filter(a=>a!==x.auto&&preisFuer({auto:a,von:x.von,bis:x.bis})&&!belegtDurch({id:x.id,auto:a,von:x.von,bis:x.bis,vonU:x.vonU,bisU:x.bisU}).length);if(!f.length)return"";
   return'<div class="epreis frei">Frei wären: '+esc(f.slice(0,3).map(kurzAuto).join(", "))+(f.length>3?" und "+(f.length-3)+" weitere":"")+'</div><a class="minik anderk" href="https://barankohler.github.io/mietix-belegung/angebot.html?zeige=angebot&anfrage='+encodeURIComponent(x.id)+'">Anderes Auto anbieten ›</a>'}
 function preisZeile0(x){
   if(!x.auto||!x.von||!x.bis)return x.auto?'<div class="epreis"><i>Datum fehlt für Preis und Verfügbarkeit</i></div>':"";
@@ -929,7 +931,7 @@ const QUOTEN=[20,30,50,100],ZAHLART=[["bar","Bar"],["ec","EC-Karte"],["kredit","
 function reservierungsText(x,r,betrag){
   const m=r.total,rest=m-betrag,proz=r.liste>0?Math.max(0,Math.round((1-r.miete/r.liste)*100)):0;
   const zeitraum=wtKurz(r.von)+" "+kurz(r.von)+" bis "+wtKurz(r.bis)+" "+lang(r.bis)+", "+r.dauer+(r.dauer===1?" Tag":" Tage");
-  const z=["*Ihre Reservierung*","","- Fahrzeug: "+r.c.n,"- Zeitraum: "+zeitraum];
+  const z=["*Ihre Reservierung*","","- Fahrzeug: "+(r.c.anzeige||r.c.n),"- Zeitraum: "+zeitraum];
   if(r.c.kaution)z.push("- Kaution bei Abholung: "+EUR0.format(r.c.kaution)+", kommt nach Rückgabe komplett zurück");
   z.push("");
   if(proz>0){z.push("*Ihr Rabatt: "+proz+" %*","Statt "+EUR.format(r.liste)+" nur "+EUR.format(r.miete),"Sie sparen "+EUR.format(r.liste-r.miete),"")}
